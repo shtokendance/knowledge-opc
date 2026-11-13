@@ -1,0 +1,58 @@
+# Server configuration
+server:
+  port: 8080
+  host: "0.0.0.0"
+
+# Conversation service configuration
+conversation:
+  max_rounds: 5
+  keyword_threshold: 0.3
+  embedding_top_k: 30
+  vector_threshold: 0.2
+  rerank_threshold: 0.3
+  rerank_top_k: 30
+  fallback_strategy: "model"
+  fallback_response: "抱歉，知识库暂未找到与您问题高度匹配的内容。"
+  fallback_prompt_id: "default_fallback_prompt"
+  enable_rewrite: true
+  enable_query_expansion: true
+  enable_rerank: true
+  rewrite_prompt_id: "default_rewrite"
+  generate_summary_prompt_id: "default_summary"
+  generate_kb_description_prompt_id: "default_kb_description"
+  generate_session_title_prompt_id: "default_session_title"
+  summary:
+    max_input_chars: 8192
+    repeat_penalty: 1.0
+    temperature: 0.3
+    max_completion_tokens: 1024
+    no_match_prefix: |-
+      <think>
+      </think>
+      NO_MATCH
+    prompt_id: "default_kb"
+    context_template_id: "default_context"
+  extract_entities_prompt_id: "default_extract_entities"
+  extract_relationships_prompt_id: "default_extract_relationships"
+  generate_questions_prompt_id: "default_generate_questions"
+
+# Knowledge base configuration
+knowledge_base:
+  chunk_size: 512
+  chunk_overlap: 50
+  split_markers: ["\n\n", "\n", "。"]
+  document_process_timeout: 2h
+  image_processing:
+    enable_multimodal: true
+
+# Extract configuration
+extract:
+  chunk_size: 512
+  overlap: 50
+  timeout: 5m
+
+# Tenant configuration
+tenant:
+  max_tenants_per_user: 10
+  default_tenant_storage_quota_gb: 20
+  enable_auto_join: false
