@@ -5,7 +5,7 @@ version: '3.8'
 # 统一规范：
 #   服务名 (Service):   knowledge-opc-xxx
 #   容器名 (Container): knowledge-opc-xxx
-#   镜像名 (Image):     <REGISTRY>/knowledge-opc-xxx:<TAG>
+#   镜像名 (Image):     knowledge-opc-xxx:${KNOWLEDGE_OPC_VERSION:-latest}
 #   网络名 (Network):   knowledge-opc-network
 # ==============================================================================
 
@@ -140,9 +140,10 @@ services:
 
   # ----------------------------------------------------------------------------
   # 7. 主后端核心服务 (App)
+  #    线上构建镜像: knowledge-opc-app:<COMMIT_ID>
   # ----------------------------------------------------------------------------
   knowledge-opc-app:
-    image: ${REGISTRY_PREFIX:-registry.cn-shanghai.aliyuncs.com/tokendance}/knowledge-opc-app:${WEKNORA_VERSION:-v2.0.0}
+    image: knowledge-opc-app:${KNOWLEDGE_OPC_VERSION:-latest}
     container_name: knowledge-opc-app
     restart: always
     env_file:
@@ -175,9 +176,10 @@ services:
 
   # ----------------------------------------------------------------------------
   # 8. 前端 UI 界面 (Nginx 代理与静态托管)
+  #    线上构建镜像: knowledge-opc-ui:<COMMIT_ID>
   # ----------------------------------------------------------------------------
   knowledge-opc-ui:
-    image: ${REGISTRY_PREFIX:-registry.cn-shanghai.aliyuncs.com/tokendance}/knowledge-opc-ui:${WEKNORA_VERSION:-v2.0.0}
+    image: knowledge-opc-ui:${KNOWLEDGE_OPC_VERSION:-latest}
     container_name: knowledge-opc-ui
     restart: always
     ports:
