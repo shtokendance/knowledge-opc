@@ -1,5 +1,5 @@
 # Reuse pre-built browserskill from existing image to avoid downloading Rust toolchain
-FROM wechatopenai/weknora-app:backup-20261014 AS browserskill
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/wechatopenai/weknora-app:v0.9.0 AS browserskill
 
 # Build stage
 FROM golang:1.26-bookworm AS builder
