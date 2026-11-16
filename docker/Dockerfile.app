@@ -19,7 +19,8 @@ ENV GOSUMDB=${GOSUMDB_ARG}
 
 # Install dependencies
 RUN if [ -n "$APK_MIRROR_ARG" ]; then \
-        sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
+        sed -i -e "s@deb.debian.org@${APK_MIRROR_ARG}@g" -e "s@security.debian.org@${APK_MIRROR_ARG}@g" \
+            /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true; \
     fi && \
     apt-get update && \
     apt-get install -y git build-essential libsqlite3-dev curl
@@ -89,6 +90,7 @@ FROM debian:12.12-slim
 WORKDIR /app
 
 ARG APK_MIRROR_ARG
+ARG PIP_INDEX_URL_ARG
 
 # Pairing derives the gateway URL from the user's page origin by default.
 ENV BROWSERSKILL_BINARY=/opt/weknora/browserskill/bsk \
@@ -105,7 +107,8 @@ RUN apt-get update && \
 
 # Then switch to mirror if specified and install other packages
 RUN if [ -n "$APK_MIRROR_ARG" ]; then \
-        sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
+        sed -i -e "s@deb.debian.org@${APK_MIRROR_ARG}@g" -e "s@security.debian.org@${APK_MIRROR_ARG}@g" \
+            /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true; \
     fi && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -115,11 +118,18 @@ RUN if [ -n "$APK_MIRROR_ARG" ]; then \
         nodejs npm \
         gosu \
         ffmpeg && \
-    python3 -m pip install --break-system-packages --upgrade pip setuptools wheel && \
+    if [ -n "$PIP_INDEX_URL_ARG" ]; then \
+        printf '[global]\nindex-url = %s\ntimeout = 120\n' "$PIP_INDEX_URL_ARG" > /etc/pip.conf; \
+    fi && \
+    python3 -m pip install --break-system-packages --default-timeout=120 --retries=5 --upgrade pip setuptools wheel && \
     mkdir -p /home/appuser/.local/bin && \
-    curl -LsSf https://astral.sh/uv/install.sh | CARGO_HOME=/home/appuser/.cargo UV_INSTALL_DIR=/home/appuser/.local/bin sh && \
+    if curl -LsSf --connect-timeout 15 --max-time 120 https://astral.sh/uv/install.sh | CARGO_HOME=/home/appuser/.cargo UV_INSTALL_DIR=/home/appuser/.local/bin sh; then \
+        ln -sf /home/appuser/.local/bin/uvx /usr/local/bin/uvx; \
+    else \
+        python3 -m pip install --break-system-packages --no-cache-dir --default-timeout=120 --retries=5 uv && \
+        ln -sf /usr/local/bin/uvx /home/appuser/.local/bin/uvx; \
+    fi && \
     chown -R appuser:appuser /home/appuser && \
-    ln -sf /home/appuser/.local/bin/uvx /usr/local/bin/uvx && \
     chmod +x /usr/local/bin/uvx && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
