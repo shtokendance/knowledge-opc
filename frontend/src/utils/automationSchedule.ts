@@ -1,8 +1,14 @@
-import type { AutomationTrigger } from '@/api/automation'
+import type { Automation, AutomationTrigger } from '@/api/automation'
 
 // The editor offers a few schedule shapes and falls back to a raw cron
 // expression for anything else. Cron here is the server's five-field form,
 // minute first, evaluated in the trigger's timezone.
+
+/** An elapsed one-shot schedule has no future occurrence to resume. */
+export function hasEndedOnceSchedule(automation: Pick<Automation, 'enabled' | 'trigger'>, now = Date.now()): boolean {
+  return !automation.enabled && automation.trigger.type === 'once'
+    && Date.parse(automation.trigger.at || '') <= now
+}
 
 export type ScheduleKind = 'hourly' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'once' | 'custom'
 
@@ -16,12 +22,14 @@ export interface ScheduleForm {
   day: number
   /** Wall-clock time of a once trigger in the timezone, "YYYY-MM-DD HH:mm". */
   at: string
+  /** Retain seconds and the original occurrence of a repeated local time when editing. */
+  originalOnce?: { at: string; timezone: string } | null
   /** Expression of a custom trigger. */
   expr: string
 }
 
 export function defaultScheduleForm(): ScheduleForm {
-  return { kind: 'daily', minute: 0, hour: 9, days: [1], day: 1, at: '', expr: '' }
+  return { kind: 'daily', minute: 0, hour: 9, days: [1], day: 1, at: '', originalOnce: null, expr: '' }
 }
 
 export function browserTimezone(): string {
@@ -60,6 +68,9 @@ export function scheduleFormFromTrigger(trigger: AutomationTrigger | undefined):
   if (trigger.type === 'once') {
     form.kind = 'once'
     form.at = trigger.at ? zonedWallClock(trigger.at, trigger.timezone) : ''
+    if (trigger.at && form.at) {
+      form.originalOnce = { at: trigger.at, timezone: trigger.timezone || 'UTC' }
+    }
     return form
   }
   const expr = (trigger.expr || '').trim()
@@ -114,6 +125,11 @@ export function triggerFromScheduleForm(form: ScheduleForm, timezone: string): A
       if (!expr) return null
       break
     case 'once': {
+      const original = form.originalOnce
+      if (original && original.timezone === tz && form.at
+        && zonedWallClock(original.at, tz) === form.at) {
+        return { type: 'once', at: original.at, timezone: tz }
+      }
       const at = wallClockToISO(form.at, tz)
       return at ? { type: 'once', at, timezone: tz } : null
     }
@@ -141,7 +157,7 @@ function offsetMs(date: Date, timeZone: string): number {
   return Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, p.s) - Math.floor(date.getTime() / 1000) * 1000
 }
 
-const WALL = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/
+const WALL = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})$/
 
 /** RFC 3339 instant of wall-clock time local in timeZone, or '' if local is malformed. */
 export function wallClockToISO(local: string, timeZone: string): string {
@@ -149,10 +165,19 @@ export function wallClockToISO(local: string, timeZone: string): string {
   if (!match) return ''
   const [, y, mo, d, h, mi] = match.map(Number)
   const guess = Date.UTC(y, mo - 1, d, h, mi)
-  let t = guess - offsetMs(new Date(guess), timeZone)
-  // A second pass settles instants near a daylight-saving change.
-  t = guess - offsetMs(new Date(t), timeZone)
-  return new Date(t).toISOString()
+  try {
+    let t = guess - offsetMs(new Date(guess), timeZone)
+    // A second pass settles instants near a daylight-saving change.
+    t = guess - offsetMs(new Date(t), timeZone)
+    const date = new Date(t)
+    const p = zoneParts(date, timeZone)
+    // Date.UTC normalizes invalid fields, and offset iteration can land on a
+    // different local time inside a DST gap. Never schedule that other time.
+    if (p.y !== y || p.mo !== mo || p.d !== d || p.h !== h || p.mi !== mi || p.s !== 0) return ''
+    return date.toISOString()
+  } catch {
+    return ''
+  }
 }
 
 /** Wall-clock "YYYY-MM-DD HH:mm" of iso in timeZone. */

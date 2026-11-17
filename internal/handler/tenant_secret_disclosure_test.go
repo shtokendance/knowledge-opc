@@ -23,6 +23,9 @@ func (s *stubTenantService) UpdateTenant(_ context.Context, tenant *types.Tenant
 	s.tenant = tenant
 	return tenant, nil
 }
+func (s *stubTenantService) SetChatHistoryConfig(context.Context, uint64, *types.ChatHistoryConfig) error {
+	panic("unexpected chat history configuration write")
+}
 
 func (s *stubTenantService) CreateTenant(context.Context, *types.Tenant) (*types.Tenant, error) {
 	return nil, nil
@@ -178,7 +181,7 @@ func TestPutTenantParserConfigAdminPreservesRedactedSecrets(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPut, "/tenants/kv/parser-engine-config", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	engine.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.NotNil(t, tenant.ParserEngineConfig)
 	assert.Equal(t, "parser-secret-123", tenant.ParserEngineConfig.MinerUAPIKey)
 	assert.Equal(t, "https://example.com/mineru", tenant.ParserEngineConfig.MinerUEndpoint)

@@ -1,5 +1,5 @@
 # Reuse pre-built browserskill from existing image to avoid downloading Rust toolchain
-FROM wechatopenai/weknora-app:backup-20261014 AS browserskill
+FROM swr.cn-north-4.myhuaweicloud.com/ddn-k8s/docker.io/wechatopenai/weknora-app:v0.9.0 AS browserskill
 
 # Build stage
 FROM golang:1.26-bookworm AS builder
@@ -19,7 +19,8 @@ ENV GOSUMDB=${GOSUMDB_ARG}
 
 # Install dependencies
 RUN if [ -n "$APK_MIRROR_ARG" ]; then \
-        sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
+        sed -i -e "s@deb.debian.org@${APK_MIRROR_ARG}@g" -e "s@security.debian.org@${APK_MIRROR_ARG}@g" \
+            /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true; \
     fi && \
     apt-get update && \
     apt-get install -y git build-essential libsqlite3-dev curl
@@ -41,13 +42,11 @@ RUN --mount=type=cache,target=/go/pkg/mod bash ./scripts/copy-licenses.sh /licen
 ARG VERSION_ARG
 ARG COMMIT_ID_ARG
 ARG BUILD_TIME_ARG
-ARG GO_VERSION_ARG
 
 # Set build-time variables
 ENV VERSION=${VERSION_ARG}
 ENV COMMIT_ID=${COMMIT_ID_ARG}
 ENV BUILD_TIME=${BUILD_TIME_ARG}
-ENV GO_VERSION=${GO_VERSION_ARG}
 
 # Link the anydoc parser engine (office docs converted in-process, no
 # Python docreader). Default on so Hub / compose images ship a working
@@ -73,9 +72,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
 # and without the mount each rebuild regenerates the whole compile cache inside
 # the layer (~2.7 GB), which occupies disk locally and is uploaded to the CI
 # layer cache. Mounted, the cache lives outside the layer and repeated builds
-# reuse compiled objects instead of recompiling from scratch.
+# reuse compiled objects instead of recompiling from scratch. Read the Go
+# version in this builder so host machines without Go still report it correctly.
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
+    export GO_VERSION="$(go version)"; \
     if [ "$WITH_ANYDOC" = "1" ]; then \
         make build-prod GO_BUILD_TAGS=anydoc; \
     else \
@@ -89,10 +90,11 @@ FROM debian:12.12-slim
 WORKDIR /app
 
 ARG APK_MIRROR_ARG
+ARG PIP_INDEX_URL_ARG
 
 # Pairing derives the gateway URL from the user's page origin by default.
 ENV BROWSERSKILL_BINARY=/opt/weknora/browserskill/bsk \
-    BROWSERSKILL_EXTENSION_PATH=/opt/weknora/browserskill/browser-skill-weknora-0.3.1.zip
+    BROWSERSKILL_EXTENSION_PATH=/opt/weknora/browserskill/browser-skill-weknora-0.4.1.zip
 COPY --from=browserskill /opt/weknora/browserskill /opt/weknora/browserskill
 
 # Create a non-root user first
@@ -105,7 +107,8 @@ RUN apt-get update && \
 
 # Then switch to mirror if specified and install other packages
 RUN if [ -n "$APK_MIRROR_ARG" ]; then \
-        sed -i "s@deb.debian.org@${APK_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources; \
+        sed -i -e "s@deb.debian.org@${APK_MIRROR_ARG}@g" -e "s@security.debian.org@${APK_MIRROR_ARG}@g" \
+            /etc/apt/sources.list /etc/apt/sources.list.d/*.sources 2>/dev/null || true; \
     fi && \
     apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -114,12 +117,19 @@ RUN if [ -n "$APK_MIRROR_ARG" ]; then \
         python3 python3-pip python3-dev libffi-dev libssl-dev \
         nodejs npm \
         gosu \
-        ffmpeg && \
-    python3 -m pip install --break-system-packages --upgrade pip setuptools wheel && \
+        ffmpeg qpdf && \
+    if [ -n "$PIP_INDEX_URL_ARG" ]; then \
+        printf '[global]\nindex-url = %s\ntimeout = 120\n' "$PIP_INDEX_URL_ARG" > /etc/pip.conf; \
+    fi && \
+    python3 -m pip install --break-system-packages --default-timeout=120 --retries=5 --upgrade pip setuptools wheel && \
     mkdir -p /home/appuser/.local/bin && \
-    curl -LsSf https://astral.sh/uv/install.sh | CARGO_HOME=/home/appuser/.cargo UV_INSTALL_DIR=/home/appuser/.local/bin sh && \
+    if curl -LsSf --connect-timeout 15 --max-time 120 https://astral.sh/uv/install.sh | CARGO_HOME=/home/appuser/.cargo UV_INSTALL_DIR=/home/appuser/.local/bin sh; then \
+        ln -sf /home/appuser/.local/bin/uvx /usr/local/bin/uvx; \
+    else \
+        python3 -m pip install --break-system-packages --no-cache-dir --default-timeout=120 --retries=5 uv && \
+        ln -sf /usr/local/bin/uvx /home/appuser/.local/bin/uvx; \
+    fi && \
     chown -R appuser:appuser /home/appuser && \
-    ln -sf /home/appuser/.local/bin/uvx /usr/local/bin/uvx && \
     chmod +x /usr/local/bin/uvx && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*

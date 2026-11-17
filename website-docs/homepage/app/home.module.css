@@ -196,7 +196,7 @@
   .heroAside > .eyebrow { display: none; }
   .heroDescription { max-width: 100%; }
   .heroNote { margin-top: 17px; }
-  .videoTop { padding: 11px 15px; font-size: 12px; }
+  .videoTop { padding: 8px 10px; }
   .videoCaption { align-items: start; flex-direction: column; padding: 13px 15px; gap: 3px; }
   .videoCaption a { font-size: 12px; }
   .trustBar { gap: 16px 24px; flex-wrap: wrap; justify-content: flex-start; padding: 24px 0; }

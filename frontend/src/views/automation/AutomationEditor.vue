@@ -21,13 +21,12 @@
           </div>
           <div class="setting-row">
             <div class="setting-info">
-              <label>{{ t('automation.fields.agent') }}</label>
-              <p class="desc">{{ t('automation.editor.agentDesc') }}</p>
+              <label>{{ t('automation.editor.model') }}</label>
+              <p class="desc">{{ t('automation.editor.modelHelp') }}</p>
             </div>
             <div class="setting-control">
-              <t-select v-model="form.agent_id" :loading="agentsLoading" filterable>
-                <t-option v-for="agent in agentOptions" :key="agent.id" :value="agent.id" :label="agent.name" />
-              </t-select>
+              <ModelSelector v-model:selected-model-id="form.model_id" model-type="KnowledgeQA" clearable
+                :placeholder="t('automation.editor.modelDefault')" @add-model="uiStore.openSettings('models', 'llm')" />
             </div>
           </div>
           <div class="setting-row setting-row-vertical">
@@ -59,11 +58,12 @@
               <label>{{ t('automation.editor.frequency') }}<span class="required">*</span></label>
             </div>
             <div class="setting-control setting-control-full">
-              <t-radio-group v-model="schedule.kind" variant="default-filled">
-                <t-radio-button v-for="kind in KINDS" :key="kind" :value="kind">
-                  {{ t(`automation.schedule.kinds.${kind}`) }}
-                </t-radio-button>
-              </t-radio-group>
+              <div class="automation-editor__frequency" role="group" :aria-label="t('automation.editor.frequency')">
+                <label v-for="kind in KINDS" :key="kind" class="automation-editor__frequency-option">
+                  <input v-model="schedule.kind" type="radio" name="automation-frequency" :value="kind" />
+                  <span>{{ t(`automation.schedule.kinds.${kind}`) }}</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -229,8 +229,11 @@
               <p class="desc">{{ t('automation.editor.maxDurationDesc') }}</p>
             </div>
             <div class="setting-control">
-              <t-input-number v-model="maxMinutes" :min="1" :max="240" theme="column"
-                :suffix="t('automation.units.minutes')" />
+              <div class="automation-editor__number">
+                <t-input-number v-model="maxMinutes" :min="1" :max="240" :step="1" :decimal-places="0"
+                  theme="row" :allow-input-over-limit="false" :aria-label="t('automation.fields.maxDuration')" />
+                <span>{{ t('automation.units.minutes') }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -249,8 +252,11 @@
               <p class="desc">{{ t('automation.editor.approvalTimeoutHelp') }}</p>
             </div>
             <div class="setting-control">
-              <t-input-number v-model="approvalHours" :min="1" :max="168" theme="column"
-                :suffix="t('automation.units.hours')" />
+              <div class="automation-editor__number">
+                <t-input-number v-model="approvalHours" :min="1" :max="168" :step="1" :decimal-places="0"
+                  theme="row" :allow-input-over-limit="false" :aria-label="t('automation.fields.approvalTimeout')" />
+                <span>{{ t('automation.units.hours') }}</span>
+              </div>
             </div>
           </div>
           <div class="setting-row">
@@ -267,9 +273,10 @@
     </div>
 
     <template #footer-note>
-      <p v-if="previewRuns.length && !previewError" class="settings-footer-note">
-        <t-icon name="time" class="settings-footer-note__icon" />
-        <span><strong>{{ describeCurrent }}</strong>{{ t('automation.nextRunAt', { time: formatInZone(previewRuns[0], timezone, locale) }) }}</span>
+      <p v-if="previewRuns.length && !previewError" class="automation-editor__next-run">
+        <t-icon name="time" size="14px" />
+        <span>{{ t('automation.fields.nextRun') }}</span>
+        <time :datetime="previewRuns[0]">{{ formatInZone(previewRuns[0], timezone, locale) }}</time>
       </p>
     </template>
     <template #footer>
@@ -282,7 +289,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import SettingsModalShell from '@/components/SettingsModalShell.vue'
@@ -298,7 +305,6 @@ import { ASSISTANT_ACCESS_LEVELS } from '@/api/assistant'
 import {
   browserTimezone,
   defaultScheduleForm,
-  describeTrigger,
   formatInZone,
   scheduleFormFromTrigger,
   timezoneOptions,
@@ -306,18 +312,17 @@ import {
   weekdayName,
   type ScheduleKind,
 } from '@/utils/automationSchedule'
-import type { AutomationAgentOption } from './agents'
+import ModelSelector from '@/components/ModelSelector.vue'
+import { useUIStore } from '@/stores/ui'
 
 const props = defineProps<{
   visible: boolean
   automation: Automation | null
-  agents: AutomationAgentOption[]
-  agentsLoading?: boolean
-  defaultAgentId: string
 }>()
 const emit = defineEmits<{ 'update:visible': [value: boolean]; saved: [value: Automation] }>()
 
 const { t, locale } = useI18n()
+const uiStore = useUIStore()
 
 type Section = 'basic' | 'schedule' | 'execution' | 'notify'
 
@@ -348,7 +353,7 @@ const navGroups = computed(() => [
 
 const blank = (): Required<Omit<AutomationInput, 'trigger' | 'limits' | 'description'>> => ({
   name: '',
-  agent_id: props.defaultAgentId,
+  model_id: '',
   instruction: '',
   session_mode: 'per_run',
   carry_last_result: false,
@@ -367,17 +372,12 @@ const saving = ref(false)
 
 const zones = computed(() => timezoneOptions(timezone.value))
 
-const agentOptions = computed(() => {
-  const list = [...props.agents]
-  if (form.agent_id && !list.some((a) => a.id === form.agent_id)) {
-    list.push({ id: form.agent_id, name: t('automation.agentUnavailable') })
-  }
-  return list
-})
-
 const approvalHours = computed({
   get: () => Math.max(1, Math.round(form.approval_timeout_minutes / 60)),
-  set: (v: number) => { form.approval_timeout_minutes = Math.max(1, Number(v) || 1) * 60 },
+  set: (v: number | undefined) => {
+    if (v === undefined || !Number.isFinite(v)) return
+    form.approval_timeout_minutes = Math.min(168, Math.max(1, Math.round(v))) * 60
+  },
 })
 
 const clock = computed({
@@ -390,7 +390,6 @@ const clock = computed({
 })
 
 const trigger = computed(() => triggerFromScheduleForm(schedule, timezone.value))
-const describeCurrent = computed(() => (trigger.value ? `${describeTrigger(trigger.value, t, locale.value)} · ` : ''))
 
 function close() {
   emit('update:visible', false)
@@ -402,7 +401,19 @@ const modalShell = useModalShell({
   snapshot: () => ({ form, schedule, timezone: timezone.value, maxMinutes: maxMinutes.value }),
 })
 
-watch(() => props.visible, (open) => {
+const previewRuns = ref<string[]>([])
+const previewError = ref('')
+const previewLoading = ref(false)
+let previewSeq = 0
+let previewTimer: ReturnType<typeof setTimeout> | undefined
+// A close/reopen is a new editing session, even for the same automation.
+// Already submitted saves may finish on the server, but must not close or
+// mark clean a newer draft.
+let editorVersion = 0
+
+watch([() => props.visible, () => props.automation?.id], ([open]) => {
+  ++editorVersion
+  saving.value = false
   if (!open) return
   const a = props.automation
   section.value = 'basic'
@@ -413,7 +424,7 @@ watch(() => props.visible, (open) => {
   if (a) {
     Object.assign(form, {
       name: a.name,
-      agent_id: a.agent_id,
+      model_id: a.model_id || '',
       instruction: a.instruction,
       session_mode: a.session_mode,
       carry_last_result: a.carry_last_result,
@@ -432,20 +443,16 @@ watch(() => props.visible, (open) => {
   modalShell.markClean()
 }, { immediate: true })
 
-const previewRuns = ref<string[]>([])
-const previewError = ref('')
-const previewLoading = ref(false)
-let previewSeq = 0
-let previewTimer: ReturnType<typeof setTimeout> | undefined
-
 watch([trigger, () => props.visible], () => {
   clearTimeout(previewTimer)
+  // Invalidate pending results even when the new schedule is incomplete/hidden.
+  const seq = ++previewSeq
+  previewLoading.value = false
   const current = trigger.value
   previewRuns.value = []
   previewError.value = ''
   if (!props.visible || !current) return
   previewLoading.value = true
-  const seq = ++previewSeq
   previewTimer = setTimeout(async () => {
     try {
       const res = await validateAutomationTrigger(current)
@@ -458,6 +465,12 @@ watch([trigger, () => props.visible], () => {
   }, 400)
 }, { deep: true })
 
+onBeforeUnmount(() => {
+  ++editorVersion
+  ++previewSeq
+  clearTimeout(previewTimer)
+})
+
 // The first section with a problem, with what to tell the user.
 function firstProblem(): [Section, string] | null {
   if (!form.name.trim()) return ['basic', t('automation.editor.errors.name')]
@@ -467,6 +480,9 @@ function firstProblem(): [Section, string] | null {
 }
 
 async function save() {
+  if (saving.value || !props.visible) return
+  const version = editorVersion
+  const automationId = props.automation?.id
   const problem = firstProblem()
   if (problem) {
     section.value = problem[0]
@@ -481,22 +497,40 @@ async function save() {
     limits: { max_duration_minutes: maxMinutes.value },
   }
   try {
-    const res = props.automation
-      ? await updateAutomation(props.automation.id, input)
+    const res = automationId
+      ? await updateAutomation(automationId, input)
       : await createAutomation(input)
-    MessagePlugin.success(props.automation ? t('common.saveSuccess') : t('common.createSuccess'))
+    if (version !== editorVersion) return
+    MessagePlugin.success(automationId ? t('common.saveSuccess') : t('common.createSuccess'))
     modalShell.markClean()
     emit('saved', res.data)
     close()
   } catch (e: any) {
-    MessagePlugin.error(e?.message || t('common.saveFailed'))
+    if (version === editorVersion) MessagePlugin.error(e?.message || t('common.saveFailed'))
   } finally {
-    saving.value = false
+    if (version === editorVersion) saving.value = false
   }
 }
 </script>
 
 <style scoped lang="less">
+.automation-editor__next-run {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-width: 0;
+  margin: 0 auto 0 0;
+  color: var(--td-text-color-secondary);
+  font-size: var(--app-text-xs);
+  line-height: 1.6;
+
+  > .t-icon { flex-shrink: 0; }
+  > span { white-space: nowrap; }
+  time { font-variant-numeric: tabular-nums; }
+}
+
 .content-wrapper {
   flex: 1;
   overflow-y: auto;
@@ -622,6 +656,62 @@ async function save() {
     background: var(--td-bg-color-secondarycontainer);
     color: var(--td-text-color-secondary);
     font-size: var(--app-text-xs);
+  }
+}
+
+.automation-editor__frequency {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.automation-editor__frequency-option {
+  position: relative;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  span {
+    display: block;
+    padding: 8px 16px;
+    border: 1px solid var(--td-component-stroke);
+    border-radius: var(--app-radius-pill);
+    color: var(--td-text-color-secondary);
+    font-size: var(--app-text-base);
+    transition: background-color var(--app-motion-fast) ease, border-color var(--app-motion-fast) ease;
+  }
+
+  &:hover span { background: var(--td-bg-color-container-hover); }
+  input:checked + span {
+    color: var(--td-brand-color);
+    border-color: color-mix(in srgb, var(--td-brand-color) 40%, var(--td-component-stroke));
+    background: color-mix(in srgb, var(--td-brand-color) 7%, var(--td-bg-color-container));
+    font-weight: 500;
+  }
+  input:focus-visible + span {
+    outline: 2px solid var(--td-brand-color-focus);
+    outline-offset: 3px;
+  }
+}
+
+.automation-editor__number {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--td-text-color-secondary);
+  white-space: nowrap;
+
+  :deep(.t-input-number) {
+    width: 160px;
+    flex: none;
   }
 }
 

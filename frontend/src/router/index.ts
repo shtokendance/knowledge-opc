@@ -3,6 +3,7 @@ import { defineComponent } from 'vue'
 import type { RouteLocationNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useDeploymentCapabilitiesStore } from '@/stores/deploymentCapabilities'
+import { useSettingsStore } from '@/stores/settings'
 import { autoSetup, userInfoFromApi } from '@/api/auth'
 import type { DeploymentCapabilityKey } from '@/config/deploymentCapabilities'
 import { MessagePlugin } from 'tdesign-vue-next'
@@ -417,6 +418,15 @@ function loginRedirectLocation(to: RouteLocationNormalized) {
   const target = safeLoginRedirect(to.fullPath)
   return target && target !== '/login' ? { path: '/login', query: { redirect: target } } : '/login'
 }
+
+router.beforeResolve((to, from) => {
+  if ((to.name === 'globalCreatChat' || to.name === 'kbCreatChat') && to.fullPath !== from.fullPath) {
+    const settingsStore = useSettingsStore()
+    const references = settingsStore.consumeNewChatReferences()
+    if (references) settingsStore.setNewChatReferences(references.kbIds, references.fileIds)
+    else settingsStore.clearChatReferences()
+  }
+})
 
 router.afterEach((to) => {
   if (!isLiteEdition(useAuthStore())) return

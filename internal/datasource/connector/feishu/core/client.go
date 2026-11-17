@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -349,7 +350,14 @@ func truncate(s string, maxLen int) string {
 	if len(s) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "..."
+	// Back off to a rune boundary: a partial multi-byte rune is invalid UTF-8,
+	// and this preview reaches sync_logs / data_sources through the sync error
+	// message, which PostgreSQL rejects. Same rule as #4555.
+	cut := maxLen
+	for cut > 0 && !utf8.RuneStart(s[cut]) {
+		cut--
+	}
+	return s[:cut] + "..."
 }
 
 // ListWikiSpaces returns all wiki spaces accessible to the app.
@@ -361,7 +369,7 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 	for {
 		path := "/open-apis/wiki/v2/spaces?page_size=50"
 		if pageToken != "" {
-			path += "&page_token=" + pageToken
+			path += "&page_token=" + url.QueryEscape(pageToken)
 		}
 
 		var resp WikiSpaceListResponse
@@ -380,8 +388,11 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 
 		allSpaces = append(allSpaces, resp.Data.Items...)
 
-		if !resp.Data.HasMore || resp.Data.PageToken == "" {
+		if !resp.Data.HasMore {
 			break
+		}
+		if resp.Data.PageToken == "" {
+			return nil, fmt.Errorf("feishu wiki space pagination: has_more=true with a missing page token")
 		}
 		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
 			return nil, fmt.Errorf("feishu wiki space pagination repeated page token %q", resp.Data.PageToken)
@@ -407,7 +418,7 @@ func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeTo
 			path += "&parent_node_token=" + parentNodeToken
 		}
 		if pageToken != "" {
-			path += "&page_token=" + pageToken
+			path += "&page_token=" + url.QueryEscape(pageToken)
 		}
 
 		var resp WikiNodeListResponse
@@ -428,8 +439,11 @@ func (c *Client) ListWikiNodes(ctx context.Context, spaceID string, parentNodeTo
 			allNodes = append(allNodes, node)
 		}
 
-		if !resp.Data.HasMore || resp.Data.PageToken == "" {
+		if !resp.Data.HasMore {
 			break
+		}
+		if resp.Data.PageToken == "" {
+			return nil, fmt.Errorf("feishu wiki node pagination: has_more=true with a missing page token")
 		}
 		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
 			return nil, fmt.Errorf("feishu wiki node pagination repeated page token %q", resp.Data.PageToken)
@@ -931,8 +945,11 @@ func (c *Client) ListDriveFilesAllPages(ctx context.Context, folderToken string)
 			return nil, err
 		}
 		all = append(all, files...)
-		if !hasMore || next == "" {
+		if !hasMore {
 			break
+		}
+		if next == "" {
+			return nil, fmt.Errorf("feishu drive file pagination: has_more=true with a missing page token")
 		}
 		if _, exists := seenPageTokens[next]; exists {
 			return nil, fmt.Errorf("feishu drive file pagination repeated page token %q", next)

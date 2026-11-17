@@ -168,8 +168,10 @@ func (p *AgentPrompt) TimelineView() *PendingPromptView {
 // ResumableAgentRequest is the part of a QARequest needed to rebuild the run
 // on another replica. It holds the original query and durable request settings.
 type ResumableAgentRequest struct {
-	AgentID string `json:"agent_id"`
-	Query   string `json:"query,omitempty"`
+	// ActingVia keeps scheduler-owned runs out of ordinary chat recovery.
+	ActingVia string `json:"acting_via,omitempty"`
+	AgentID   string `json:"agent_id"`
+	Query     string `json:"query,omitempty"`
 	// AgentTenantID is the agent owner's workspace; it differs from the
 	// session's when the agent is shared.
 	AgentTenantID       uint64          `json:"agent_tenant_id,omitempty"`
@@ -223,6 +225,10 @@ type ToolApprovalPromptResponse struct {
 	Reason       string          `json:"reason,omitempty"`
 	// AllowInSession approves later calls with the request's Grant too.
 	AllowInSession bool `json:"allow_in_session,omitempty"`
+	// Scope is "once" or "session" for Lite host approvals; empty means once.
+	Scope string `json:"scope,omitempty"`
+	// Access narrows a host grant to "read"; empty keeps the proposal.
+	Access string `json:"access,omitempty"`
 }
 
 // MCPOAuthPromptRequest is the Request of an AgentPromptKindMCPOAuth.
