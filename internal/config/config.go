@@ -525,6 +525,7 @@ type OIDCUserInfoMapping struct {
 
 type OIDCAuthConfig struct {
 	Enable                bool                 `yaml:"enable"                 json:"enable"`
+	PKCEEnabled           bool                 `yaml:"pkce_enabled"           json:"pkce_enabled"`
 	IssuerURL             string               `yaml:"issuer_url"             json:"issuer_url"`
 	DiscoveryURL          string               `yaml:"discovery_url"          json:"discovery_url"`
 	ProviderDisplayName   string               `yaml:"provider_display_name"  json:"provider_display_name"`
@@ -745,7 +746,9 @@ func LoadConfig() (*Config, error) {
 	})
 
 	// 使用处理后的配置内容
-	viper.ReadConfig(strings.NewReader(result))
+	if err := viper.ReadConfig(strings.NewReader(result)); err != nil {
+		return nil, fmt.Errorf("error parsing expanded config: %w", err)
+	}
 
 	// 解析配置到结构体
 	var cfg Config
@@ -918,6 +921,9 @@ func applyOIDCEnvOverrides(cfg *Config) {
 
 	if value := strings.TrimSpace(os.Getenv("OIDC_AUTH_ENABLE")); value != "" {
 		cfg.OIDCAuth.Enable = strings.EqualFold(value, "true")
+	}
+	if value := strings.TrimSpace(os.Getenv("OIDC_AUTH_PKCE_ENABLED")); value != "" {
+		cfg.OIDCAuth.PKCEEnabled = strings.EqualFold(value, "true")
 	}
 	if value := strings.TrimSpace(os.Getenv("OIDC_AUTH_ISSUER_URL")); value != "" {
 		cfg.OIDCAuth.IssuerURL = value

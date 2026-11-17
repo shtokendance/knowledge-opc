@@ -11,10 +11,10 @@
         <div class="action-card tree-root" @click="toggleIntermediateSteps">
           <div class="action-header">
             <div class="action-title">
-              <span class="action-title-icon icon-mask" :style="maskIconStyle(agentIcon)" aria-hidden="true" />
+              <ChatTimelineIcon class="action-title-icon" name="agent" />
               <span class="action-name tree-root-summary" v-html="intermediateStepsSummaryHtml"></span>
               <div class="action-show-icon">
-                <t-icon :name="showIntermediateSteps ? 'chevron-down' : 'chevron-right'" />
+                <ChatTimelineIcon width="14" height="14" :name="showIntermediateSteps ? 'chevron-down' : 'chevron-right'" />
               </div>
             </div>
           </div>
@@ -35,7 +35,7 @@
             :class="{ 'tree-child-last': !isSegmentDone && index === visibleIntermediateEvents.length - 1, 'tree-child-progress': event.type === 'child_task' }">
             <div class="tree-branch"></div>
             <div class="tree-child-content">
-              <CollaborationTasks v-if="event.type === 'child_task'" :task="event.task" :disabled="!!embedToken" :tool-label="getLocalizedToolName" @open="openChildTask" />
+              <CollaborationTasks v-if="event.type === 'child_task'" :task="event.task" :motion-paused="isSegmentDone" :disabled="!!embedToken" :tool-label="getLocalizedToolName" @open="openChildTask" />
 
               <!-- Plan Task Change Event -->
               <div v-if="event.type === 'plan_task_change'" class="plan-task-change-event">
@@ -51,8 +51,7 @@
                 <div class="action-card">
                   <div class="action-header" @click="toggleEvent(event.event_id)">
                     <div class="action-title">
-                      <span class="action-title-icon icon-mask" :style="maskIconStyle(compactionIcon)"
-                        aria-hidden="true" />
+                      <ChatTimelineIcon class="action-title-icon" name="compaction" />
                       <span class="action-name">{{ $t('agent.contextCompacted') }}</span>
                       <span class="action-summary">{{ compactionSummaryText(event) }}</span>
                     </div>
@@ -78,8 +77,7 @@
                     <div class="action-title" :class="{
                       'thinking-inline-title': !event.title && isEventExpanded(event.event_id),
                     }">
-                      <span class="action-title-icon icon-mask" :style="maskIconStyle(thinkingIcon)"
-                        aria-hidden="true" />
+                      <ChatTimelineIcon class="action-title-icon" name="lightbulb" :active="!isSegmentDone && isThinkingActive(event.event_id)" />
                       <span v-if="event.title" class="action-name action-preamble-title">{{ event.title }}</span>
                       <div v-else-if="event.content && isEventExpanded(event.event_id)"
                         class="thinking-inline-content markdown-content"
@@ -105,8 +103,7 @@
                   :class="{ 'action-pending': event.pending || isThinkingActive(event.tool_call_id) }">
                   <div class="action-header" @click="toggleEvent(event.tool_call_id)">
                     <div class="action-title">
-                      <span class="action-title-icon icon-mask" :style="maskIconStyle(thinkingIcon)"
-                        aria-hidden="true" />
+                      <ChatTimelineIcon class="action-title-icon" name="lightbulb" :active="!isSegmentDone && (event.pending || isThinkingActive(event.tool_call_id))" />
                       <span class="action-name">{{ $t('agent.think') }}</span>
                       <span v-if="event.tool_data?.thought_number" class="action-badge">{{
                         event.tool_data.thought_number }}/{{ event.tool_data.total_thoughts }}</span>
@@ -123,7 +120,7 @@
               </div>
 
               <!-- MCP tool human approval (issue #1173) -->
-              <div v-else-if="event.type === 'tool_approval_required'" class="tool-event">
+              <div v-else-if="event.type === 'tool_approval_required' && showInlineToolApproval(event)" class="tool-event">
                 <ToolApprovalCard :pending-id="event.pending_id" :delegated-task="event.delegated_task" :service-name="event.service_name || ''"
                   :mcp-tool-name="event.mcp_tool_name || ''" :description="event.description"
                   :args-json="event.args_json" :grant-scope="event.grant_scope" :grant-lapsed="event.grant_lapsed" :timeout-seconds="event.timeout_seconds"
@@ -143,6 +140,15 @@
                   :canceled="event.canceled" :abandoned="event.abandoned" v-bind="embedAuthProps" />
               </div>
 
+              <div v-else-if="event.type === 'agent_prompt_required' && event.kind === 'secure_form'" class="tool-event">
+                <SecureFormCard :pending-id="event.pending_id" :request="event.request"
+                  :timeout-seconds="event.timeout_seconds" :hot-wait-seconds="event.hot_wait_seconds"
+                  :suspendable="event.suspendable" :suspended="event.suspended" :expires-at="event.expires_at"
+                  :requested-at="event.requested_at" :resolved="event.resolved" :answered="event.answered"
+                  :resolve-reason="event.resolve_reason" :timed-out="event.timed_out"
+                  :canceled="event.canceled" :abandoned="event.abandoned" />
+              </div>
+
               <!-- MCP OAuth in-conversation authorization prompt -->
               <div v-else-if="event.type === 'mcp_oauth_required'" class="tool-event">
                 <McpOAuthCard :pending-id="event.pending_id" :service-id="event.service_id || ''"
@@ -151,6 +157,24 @@
                   :resolved="event.resolved" :authorized="event.authorized"
                   :resolve-reason="event.resolve_reason" :timed-out="event.timed_out" :canceled="event.canceled"
                   v-bind="embedAuthProps" />
+              </div>
+
+              <div v-else-if="showInlineHostApproval(event)" class="tool-event">
+                <HostReviewRecord v-if="isModelReview(event)" :host="event.host"
+                  :resolved="event.resolved" :approved="event.approved" :resolve-reason="event.resolve_reason" />
+                <HostApprovalCard v-else :pending-id="event.pending_id"
+                  :host="event.host || { reason: event.kind === 'host_command' ? 'delete' : '' }"
+                  :timeout-seconds="event.timeout_seconds" :requested-at="event.requested_at"
+                  :resolved="event.resolved" :approved="event.approved"
+                  :resolve-reason="event.resolve_reason" :resolve-scope="event.resolve_scope" />
+              </div>
+
+              <div v-else-if="showInlineToolApproval(event)" class="tool-event">
+                <ToolApprovalCard :pending-id="event.pending_id" :service-name="event.service_name || ''"
+                  :mcp-tool-name="event.mcp_tool_name || ''" :description="event.description"
+                  :args-json="event.args_json" :timeout-seconds="event.timeout_seconds"
+                  :requested-at="event.requested_at" :resolved="event.resolved" :approved="event.approved"
+                  :resolve-reason="event.resolve_reason" v-bind="embedAuthProps" />
               </div>
 
               <!-- Tool Call Event (non-thinking) -->
@@ -169,10 +193,8 @@
                   <div class="action-header" @click.stop="handleActionHeaderClick(event)"
                     :class="{ 'no-results': !hasActionResult(event) }">
                     <div class="action-title">
-                      <BrowserIcon v-if="event.tool_name === 'local_browser'" class="action-title-icon browser-tool-icon" />
-                      <span v-else-if="isCollaborationTool(event.tool_name)" class="action-title-icon icon-mask" :style="maskIconStyle(agentIcon)" aria-hidden="true" />
-                      <t-icon v-else-if="event.tool_name" class="action-title-icon"
-                        :name="getToolIconName(event.tool_name)" />
+                      <ChatTimelineIcon v-if="event.tool_name" class="action-title-icon"
+                        :name="getToolIconName(event.tool_name)" :active="!isSegmentDone && event.pending" />
                       <t-tooltip v-if="event.tool_name === 'todo_write' && event.tool_data?.steps"
                         :content="t('agent.updatePlan')" placement="top">
                         <span class="action-name">{{ $t('agent.updatePlan') }}</span>
@@ -189,7 +211,7 @@
                         :title="t('agent.viewReasoning')" :aria-label="t('agent.viewReasoning')"
                         :aria-expanded="isEventExpanded(event.reasoning.id)"
                         @click.stop="toggleEvent(event.reasoning.id)" @keydown.enter.stop @keydown.space.stop>
-                        <span class="icon-mask" :style="maskIconStyle(thinkingIcon, 14)" aria-hidden="true" />
+                        <ChatTimelineIcon name="lightbulb" width="14" height="14" />
                       </button>
                     </div>
                   </div>
@@ -210,7 +232,7 @@
                     class="plan-status-summary-fixed">
                     <div class="plan-status-text">
                       <template v-for="(part, partIndex) in getPlanStatusItems(event)" :key="partIndex">
-                        <t-icon :name="part.icon" :class="['status-icon', part.class]" />
+                        <ChatTimelineIcon width="14" height="14" :name="part.icon" :class="['status-icon', part.class]" />
                         <span>{{ part.label }} {{ part.count }}</span>
                         <span v-if="partIndex < getPlanStatusItems(event).length - 1" class="separator">·</span>
                       </template>
@@ -247,7 +269,7 @@
                   </div>
 
                   <SandboxCommandProgress
-                    v-if="event.tool_name === 'shell_exec' && event.pending && event.command_output && !event.command_output.done"
+                    v-if="showLiveShellOutput(event)"
                     :progress="event.command_output"
                   />
 
@@ -284,7 +306,7 @@
             <div class="action-card">
               <div class="action-header no-results">
                 <div class="action-title">
-                  <t-icon class="action-title-icon" name="check-circle" />
+                  <ChatTimelineIcon class="action-title-icon" name="check-circle" />
                   <span class="action-name">{{ t(wasUserStopped ? 'input.messages.stopSuccess' : 'common.finish') }}</span>
                 </div>
               </div>
@@ -321,10 +343,10 @@
               @keydown.enter.prevent="earlierStepsExpanded = !earlierStepsExpanded"
               @keydown.space.prevent="earlierStepsExpanded = !earlierStepsExpanded">
               <div class="action-title">
-                <t-icon class="action-title-icon" name="ellipsis" />
+                <ChatTimelineIcon class="action-title-icon" name="ellipsis" />
                 <span class="action-name">{{ t('agent.earlierSteps', { count: earlierStepsCount }) }}</span>
                 <div class="action-show-icon">
-                  <t-icon :name="earlierStepsExpanded ? 'chevron-down' : 'chevron-right'" />
+                  <ChatTimelineIcon width="14" height="14" :name="earlierStepsExpanded ? 'chevron-down' : 'chevron-right'" />
                 </div>
               </div>
             </div>
@@ -341,7 +363,7 @@
           <div v-if="isStreamingTimelineEvent(event)" class="tree-branch"></div>
           <div :class="{ 'tree-child-content': isStreamingTimelineEvent(event) }">
 
-            <CollaborationTasks v-if="event.type === 'child_task'" :task="event.task" :disabled="!!embedToken" :tool-label="getLocalizedToolName" @open="openChildTask" />
+            <CollaborationTasks v-if="event.type === 'child_task'" :task="event.task" :motion-paused="isSegmentDone" :disabled="!!embedToken" :tool-label="getLocalizedToolName" @open="openChildTask" />
 
               <!-- Plan Task Change Event -->
             <div v-if="event.type === 'plan_task_change'" class="plan-task-change-event">
@@ -357,8 +379,7 @@
               <div class="action-card">
                 <div class="action-header" @click="toggleEvent(event.event_id)">
                   <div class="action-title">
-                    <span class="action-title-icon icon-mask" :style="maskIconStyle(compactionIcon)"
-                      aria-hidden="true" />
+                    <ChatTimelineIcon class="action-title-icon" name="compaction" />
                     <span class="action-name">{{ $t('agent.contextCompacted') }}</span>
                     <span class="action-summary">{{ compactionSummaryText(event) }}</span>
                   </div>
@@ -384,7 +405,7 @@
                   <div class="action-title" :class="{
                     'thinking-inline-title': !event.title && isEventExpanded(event.event_id),
                   }">
-                    <span class="action-title-icon icon-mask" :style="maskIconStyle(thinkingIcon)" aria-hidden="true" />
+                    <ChatTimelineIcon class="action-title-icon" name="lightbulb" :active="!isSegmentDone && isThinkingActive(event.event_id)" />
                     <span v-if="event.title" class="action-name action-preamble-title">{{ event.title }}</span>
                     <div v-else-if="event.content && isEventExpanded(event.event_id)"
                       class="thinking-inline-content markdown-content"
@@ -405,7 +426,7 @@
             </div>
 
             <!-- MCP tool human approval -->
-            <div v-else-if="event.type === 'tool_approval_required'" class="tool-event">
+            <div v-else-if="event.type === 'tool_approval_required' && showInlineToolApproval(event)" class="tool-event">
               <ToolApprovalCard :pending-id="event.pending_id" :delegated-task="event.delegated_task" :service-name="event.service_name || ''"
                 :mcp-tool-name="event.mcp_tool_name || ''" :description="event.description" :args-json="event.args_json"
                 :grant-scope="event.grant_scope" :grant-lapsed="event.grant_lapsed" :timeout-seconds="event.timeout_seconds" :requested-at="event.requested_at" :resolved="event.resolved"
@@ -424,6 +445,15 @@
                 :canceled="event.canceled" :abandoned="event.abandoned" v-bind="embedAuthProps" />
             </div>
 
+            <div v-else-if="event.type === 'agent_prompt_required' && event.kind === 'secure_form'" class="tool-event">
+              <SecureFormCard :pending-id="event.pending_id" :request="event.request"
+                :timeout-seconds="event.timeout_seconds" :hot-wait-seconds="event.hot_wait_seconds"
+                :suspendable="event.suspendable" :suspended="event.suspended" :expires-at="event.expires_at"
+                :requested-at="event.requested_at" :resolved="event.resolved" :answered="event.answered"
+                :resolve-reason="event.resolve_reason" :timed-out="event.timed_out"
+                :canceled="event.canceled" :abandoned="event.abandoned" />
+            </div>
+
             <!-- MCP OAuth in-conversation authorization prompt -->
             <div v-else-if="event.type === 'mcp_oauth_required'" class="tool-event">
               <McpOAuthCard :pending-id="event.pending_id" :service-id="event.service_id || ''"
@@ -433,13 +463,31 @@
                 :canceled="event.canceled" v-bind="embedAuthProps" />
             </div>
 
+            <div v-else-if="showInlineHostApproval(event)" class="tool-event">
+              <HostReviewRecord v-if="isModelReview(event)" :host="event.host"
+                :resolved="event.resolved" :approved="event.approved" :resolve-reason="event.resolve_reason" />
+              <HostApprovalCard v-else :pending-id="event.pending_id"
+                :host="event.host || { reason: event.kind === 'host_command' ? 'delete' : '' }"
+                :timeout-seconds="event.timeout_seconds" :requested-at="event.requested_at"
+                :resolved="event.resolved" :approved="event.approved"
+                :resolve-reason="event.resolve_reason" :resolve-scope="event.resolve_scope" />
+            </div>
+
+            <div v-else-if="showInlineToolApproval(event)" class="tool-event">
+              <ToolApprovalCard :pending-id="event.pending_id" :service-name="event.service_name || ''"
+                :mcp-tool-name="event.mcp_tool_name || ''" :description="event.description"
+                :args-json="event.args_json" :timeout-seconds="event.timeout_seconds"
+                :requested-at="event.requested_at" :resolved="event.resolved" :approved="event.approved"
+                :resolve-reason="event.resolve_reason" v-bind="embedAuthProps" />
+            </div>
+
             <!-- Thinking Tool Call -->
             <div v-else-if="event.type === 'tool_call' && event.tool_name === 'thinking'" class="tool-event">
               <div class="action-card"
                 :class="{ 'action-pending': event.pending || isThinkingActive(event.tool_call_id) }">
                 <div class="action-header" @click="toggleEvent(event.tool_call_id)">
                   <div class="action-title">
-                    <span class="action-title-icon icon-mask" :style="maskIconStyle(thinkingIcon)" aria-hidden="true" />
+                    <ChatTimelineIcon class="action-title-icon" name="lightbulb" :active="!isSegmentDone && (event.pending || isThinkingActive(event.tool_call_id))" />
                     <span class="action-name">{{ $t('agent.think') }}</span>
                     <span v-if="event.tool_data?.thought_number" class="action-badge">{{ event.tool_data.thought_number
                     }}/{{ event.tool_data.total_thoughts }}</span>
@@ -556,9 +604,7 @@
                 <div class="action-header" @click.stop="handleActionHeaderClick(event)"
                   :class="{ 'no-results': !hasActionResult(event) }">
                   <div class="action-title">
-                    <BrowserIcon v-if="event.tool_name === 'local_browser'" class="action-title-icon browser-tool-icon" />
-                    <span v-else-if="isCollaborationTool(event.tool_name)" class="action-title-icon icon-mask" :style="maskIconStyle(agentIcon)" aria-hidden="true" />
-                    <t-icon v-else-if="event.tool_name" class="action-title-icon" :name="getToolIconName(event.tool_name)" />
+                    <ChatTimelineIcon v-if="event.tool_name" class="action-title-icon" :name="getToolIconName(event.tool_name)" :active="!isSegmentDone && event.pending" />
                     <t-tooltip v-if="event.tool_name === 'todo_write' && event.tool_data?.steps"
                       :content="t('agent.updatePlan')" placement="top">
                       <span class="action-name">
@@ -577,7 +623,7 @@
                       :title="t('agent.viewReasoning')" :aria-label="t('agent.viewReasoning')"
                       :aria-expanded="isEventExpanded(event.reasoning.id)"
                       @click.stop="toggleEvent(event.reasoning.id)" @keydown.enter.stop @keydown.space.stop>
-                      <span class="icon-mask" :style="maskIconStyle(thinkingIcon, 14)" aria-hidden="true" />
+                      <ChatTimelineIcon name="lightbulb" width="14" height="14" />
                     </button>
                   </div>
                 </div>
@@ -598,7 +644,7 @@
                   class="plan-status-summary-fixed">
                   <div class="plan-status-text">
                     <template v-for="(part, partIndex) in getPlanStatusItems(event)" :key="partIndex">
-                      <t-icon :name="part.icon" :class="['status-icon', part.class]" />
+                      <ChatTimelineIcon width="14" height="14" :name="part.icon" :class="['status-icon', part.class]" />
                       <span>{{ part.label }} {{ part.count }}</span>
                       <span v-if="partIndex < getPlanStatusItems(event).length - 1" class="separator">·</span>
                     </template>
@@ -635,7 +681,7 @@
                 </div>
 
                 <SandboxCommandProgress
-                  v-if="event.tool_name === 'shell_exec' && event.pending && event.command_output && !event.command_output.done"
+                  v-if="showLiveShellOutput(event)"
                   :progress="event.command_output"
                 />
 
@@ -678,7 +724,7 @@
           <div class="action-card action-pending">
             <div class="action-header no-results">
               <div class="action-title">
-                <span class="action-title-icon icon-mask" :style="maskIconStyle(thinkingIcon)" aria-hidden="true" />
+                <ChatTimelineIcon class="action-title-icon" name="lightbulb" :active="!isSegmentDone" />
                 <span class="action-name">{{ t(childActivity === 'approval' ? 'agentStream.collaboration.status.waiting' : childActivity ? 'agentStream.collaboration.waiting' : 'chat.thinkingAlt') }}</span>
               </div>
             </div>
@@ -762,7 +808,12 @@ import OpenPageCard from './OpenPageCard.vue';
 import PageEditCard from './PageEditCard.vue';
 import { isAssistantPageLink } from '@/utils/assistantPageLink';
 import AskUserCard from './AskUserCard.vue';
+import SecureFormCard from './SecureFormCard.vue';
 import ChatActionIcon from '@/components/ChatActionIcon.vue';
+import ChatTimelineIcon from '@/components/ChatTimelineIcon.vue';
+import HostApprovalCard from './HostApprovalCard.vue';
+import HostReviewRecord from './HostReviewRecord.vue';
+import { isHostApprovalEvent, isModelReview } from './hostApproval';
 import ChatRequestInfoButton from '@/components/ChatRequestInfoButton.vue';
 import ChatCitationFloat from '@/components/ChatCitationFloat.vue';
 import picturePreview from '@/components/picture-preview.vue';
@@ -798,10 +849,10 @@ import {
 } from '@/utils/sandboxArtifactRefs';
 import type { ProtectedFileAccessContext } from '@/utils/protectedFileAccess';
 import { unwrapFinalAnswerWrappers, thinkingEqualsAnswer } from '@/utils/finalAnswer';
-import { getAgentToolIconName, isCollaborationTool } from '@/utils/agent-tool-icons';
+import { getAgentToolIconName } from '@/utils/agent-tool-icons';
 import { getMcpToolDisplayType, getMcpToolTitle, mcpToolResultOutput } from '@/utils/mcpToolDisplay';
 import { getCatalogToolDisplayType, getCatalogToolTitle } from '@/utils/catalogToolDisplay';
-import { getQueryText, getWikiPageText } from '@/utils/agent-tool-display';
+import { countSearchResultFiles, getQueryText, getWikiPageText } from '@/utils/agent-tool-display';
 import {
   formatToolTitleWithDetail,
   getEventSkillName,
@@ -814,11 +865,13 @@ import {
   skillScriptTitleCommand,
 } from '@/utils/skillToolDisplay';
 import { previewShellCommand } from '@/utils/shellExecResult';
+import { showLiveShellOutput } from '@/utils/shellProgress';
 import type { DisplayType } from '@/types/tool-results';
 import { parseWikiToolReferences } from '@/utils/wikiToolReferences';
 import {
   buildManualMarkdown,
   formatManualTitle,
+  collectManualPreferredKbIds,
   replaceIncompleteMermaidWithPlaceholder,
   prepareStreamingMermaidMarkdown,
   extractMermaidCodes,
@@ -831,6 +884,8 @@ import {
   renderChatMarkdown,
   wrapChatMarkdownTables,
 } from '@/utils/chatMarkdownRenderer';
+import { getChunkByIdOnly, getKnowledgeDetails } from '@/api/knowledge-base';
+import { WEKNORA_ENTITY_LINK_CLASS, type WeKnoraEntityKind } from '@/utils/weknoraEntityLinks';
 import {
   appendMermaidSvgCache,
   createMermaidCodeRenderer,
@@ -843,7 +898,6 @@ import { vStableHtml } from '@/directives/stableHtml';
 
 import BrowserToolDetails from './BrowserToolDetails.vue';
 import { browserToolTitle } from '@/utils/browserToolDisplay';
-import BrowserIcon from '@/components/icons/BrowserIcon.vue';
 const getToolIconName = getAgentToolIconName;
 
 const readingHistory = inject(chatReadingHistoryKey, ref(false));
@@ -883,6 +937,8 @@ const TOOL_NAME_KEYS: Record<string, string> = {
   wiki_update_issue: 'agentEditor.tools.wikiUpdateIssue',
   todo_write: 'agentStream.tools.todoWrite',
   ask_user: 'agentStream.tools.askUser',
+  request_secure_form: 'agentStream.tools.requestSecureForm',
+  browser_fill_secret: 'agentStream.tools.browserFillSecret',
   knowledge_graph_extract: 'agentStream.tools.knowledgeGraphExtract',
   thinking: 'agentStream.tools.thinking',
   attachment_parsing: 'agentStream.tools.attachmentParsing',
@@ -897,6 +953,7 @@ const TOOL_NAME_KEYS: Record<string, string> = {
   write_sandbox_file: 'agentStream.tools.writeSandboxFile',
   edit_sandbox_file: 'agentStream.tools.editSandboxFile',
   shell_exec: 'agentStream.tools.shellExec',
+  shell_exec_async: 'agentStream.tools.shellExec',
   local_browser: 'localBrowser.local',
   data_analysis: 'agentStream.tools.dataAnalysis',
   data_schema: 'agentStream.tools.dataSchema',
@@ -1085,6 +1142,50 @@ const openRouteInNewTab = (path: string) => {
   window.open(href, '_blank', 'noopener,noreferrer');
 };
 
+const resolveEntityRoute = async (kind: WeKnoraEntityKind, id: string) => {
+  if (kind === 'kb') return { path: `/platform/knowledge-bases/${encodeURIComponent(id)}` };
+  const res: any = kind === 'doc' ? await getKnowledgeDetails(id) : await getChunkByIdOnly(id);
+  const data = res?.data;
+  const kbId = data?.knowledge_base_id;
+  const knowledgeId = kind === 'doc' ? id : data?.knowledge_id;
+  if (!kbId) return null;
+  return {
+    path: `/platform/knowledge-bases/${encodeURIComponent(kbId)}`,
+    query: knowledgeId ? { knowledge_id: knowledgeId } : {},
+  };
+};
+
+// Documents and chunks need a lookup to find their knowledge base, so the tab
+// is opened synchronously (keeping the click's popup permission) and pointed
+// at the route once it resolves. Access is still checked by the target page.
+const openWeKnoraEntity = async (el: HTMLElement) => {
+  const kind = el.getAttribute('data-entity-kind') as WeKnoraEntityKind | null;
+  const id = el.getAttribute('data-entity-id') || '';
+  if (!kind || !id || props.embedToken) return;
+  const win = kind === 'kb' ? null : window.open('about:blank', '_blank');
+  try {
+    const route = await resolveEntityRoute(kind, id);
+    if (!route) throw new Error('entity has no knowledge base');
+    const href = router.resolve(route).href;
+    if (win) {
+      win.opener = null;
+      win.location.href = href;
+    } else {
+      window.open(href, '_blank', 'noopener,noreferrer');
+    }
+  } catch (error) {
+    win?.close();
+    console.error('Failed to open WeKnora entity link:', error);
+    MessagePlugin.warning(t('agentStream.citation.loadFailed'));
+  }
+};
+
+const entityLinkLabels = computed(() => ({
+  kb: t('agentStream.entityLink.kb'),
+  doc: t('agentStream.entityLink.doc'),
+  chunk: t('agentStream.entityLink.chunk'),
+}));
+
 const handleWikiDrawerClick = (e: MouseEvent) => {
   const target = e.target as HTMLElement;
   if (target.closest('.citation-wiki')) {
@@ -1111,9 +1212,6 @@ const handleWikiDrawerClick = (e: MouseEvent) => {
 };
 
 // Import icons
-import agentIcon from '@/assets/img/agent.svg';
-import thinkingIcon from '@/assets/img/Frame3718.svg';
-import compactionIcon from '@/assets/img/context-compaction.svg';
 
 interface SessionData {
   id?: string;
@@ -1140,6 +1238,9 @@ const props = defineProps<{
   followUpLoading?: boolean;
   canFork?: boolean;
   canRewind?: boolean;
+  // The main chat draws the approval above the composer. Embed and skill
+  // install have no composer slot, so they render the MCP card inline.
+  deferToolApprovals?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -1169,6 +1270,28 @@ const embedAuthProps = computed(() => ({
   embedSessionSig: props.embedSessionSig,
   embedVisitorId: props.embedVisitorId,
 }));
+
+// Host command cards stay above the chat composer. MCP cards render here
+// unless that composer is already showing them.
+const approvalEvent = (event: { type?: string; kind?: string; host?: unknown; resolved?: boolean }) =>
+  event?.type === 'tool_approval_required';
+
+// Pending host cards sit above the composer. A resolved approval, and every
+// model review (pending or not), stays in the timeline.
+const showInlineHostApproval = (event: { type?: string; kind?: string; host?: any; resolved?: boolean }) =>
+  approvalEvent(event) && isHostApprovalEvent(event) && (!!event.resolved || isModelReview(event));
+
+const showInlineToolApproval = (event: { type?: string; kind?: string; host?: unknown; resolved?: boolean }) => {
+  if (!approvalEvent(event) || isHostApprovalEvent(event)) return false;
+  if (event.resolved) return true;
+  return !props.deferToolApprovals;
+};
+
+const hideApprovalFromTimeline = (event: { type?: string; kind?: string; host?: unknown; resolved?: boolean }) => {
+  if (event?.type === 'tool_approval_resolved') return true;
+  if (!approvalEvent(event)) return false;
+  return !showInlineHostApproval(event) && !showInlineToolApproval(event);
+};
 
 const showRequestInfo = computed(
   () => !props.embeddedMode && !!(props.session?.request_id || props.session?.id),
@@ -1353,9 +1476,11 @@ const resolveToolDisplayType = (event: any): DisplayType | undefined => {
   const catalogType = getCatalogToolDisplayType(event?.tool_name)
   if (catalogType) return catalogType
   if (event?.display_type) return event.display_type as DisplayType
-  if (event?.tool_name === 'shell_exec' || event?.tool_name === 'execute_skill_script') {
+  if (event?.tool_name === 'shell_exec' || event?.tool_name === 'shell_exec_async' ||
+      event?.tool_name === 'execute_skill_script') {
     return 'shell_exec'
   }
+  if (event?.tool_name === 'work_wait') return 'work_wait'
   if (event?.tool_name === 'list_sandbox_files' && event?.success !== false) {
     return 'list_sandbox_files'
   }
@@ -1610,6 +1735,14 @@ const hasCollaborationTasks = computed(() => !props.ragMode && collaborationTask
 
 // Expanded events tracking (for tool calls and thinking events)
 const expandedEvents = ref<Set<string>>(new Set());
+
+// Defined here, before any computed that can run during setup: an initial
+// non-empty event stream makes the immediate watcher evaluate
+// canAttachReasoning, which reads this function. As a const declared below it,
+// it would be in its temporal dead zone and crash the whole timeline render.
+const isEventExpanded = (eventId: string): boolean => {
+  return expandedEvents.value.has(eventId);
+};
 
 // Track IDs of thinking events that are currently "active" (latest, not yet followed by non-thinking)
 const activeThinkingIds = ref<Set<string>>(new Set());
@@ -2197,6 +2330,7 @@ const intermediateEvents = computed(() => {
   const hidden = hiddenThinkingEventIds.value;
   return result.filter((e: any) => {
     if (e.type === 'answer' || e.type === 'agent_complete') return false;
+    if (hideApprovalFromTimeline(e)) return false;
     // Mid-run injected user messages render as normal user bubbles in the
     // message list, not inside the steps tree — the tree template has no
     // branch for this type and would otherwise emit an empty node.
@@ -2226,7 +2360,7 @@ const displayEvents = computed(() => {
     // Injected user messages render as normal user bubbles in the message
     // list — never inside the agent timeline (the template has no branch for
     // the type and would render an empty card).
-    (e: any) => e.type !== 'user_message_injected',
+    (e: any) => e.type !== 'user_message_injected' && !hideApprovalFromTimeline(e),
   );
 
   // Quick-answer RAG: pipeline steps (including attachment prep) live in
@@ -2407,10 +2541,6 @@ const handleActionHeaderClick = (event: any) => {
 const handleActionCardClick = (event: any) => {
   if (!canOpenToolReferences(event)) return;
   openToolReferences(event);
-};
-
-const isEventExpanded = (eventId: string): boolean => {
-  return expandedEvents.value.has(eventId);
 };
 
 const isReferenceDrawerTool = (toolName?: string | null): boolean =>
@@ -2614,6 +2744,14 @@ const onRootClick = (e: Event) => {
     return;
   }
 
+  const entityEl = target.closest?.(`.${WEKNORA_ENTITY_LINK_CLASS}`) as HTMLElement | null;
+  if (entityEl) {
+    e.preventDefault();
+    e.stopPropagation();
+    void openWeKnoraEntity(entityEl);
+    return;
+  }
+
   // Handle wiki link clicks -> navigate to KB wiki browser page
   const wikiEl = target.closest?.('.citation-wiki') as HTMLElement | null;
   if (wikiEl && wikiEl.getAttribute('data-slug')) {
@@ -2698,6 +2836,15 @@ const onRootKeydown = (e: KeyboardEvent) => {
           console.error('Failed to navigate to knowledge base:', error);
         }
       }
+    }
+    return;
+  }
+
+  const entityEl = target.closest?.(`.${WEKNORA_ENTITY_LINK_CLASS}`) as HTMLElement | null;
+  if (entityEl) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      void openWeKnoraEntity(entityEl);
     }
     return;
   }
@@ -2822,6 +2969,7 @@ const renderAgentMarkdown = (
     cachedMermaidSvgHtml: streamingMermaidSvgCache.value,
     prepareMarkdown: prepareAgentMarkdown,
     injectCachedMermaidSvg,
+    entityLinkLabels: entityLinkLabels.value,
   });
 };
 
@@ -2926,7 +3074,7 @@ const getPlanStatusItems = (event: any) => {
 
   if (parts.inProgress > 0) {
     items.push({
-      icon: 'play-circle-filled',
+      icon: 'play-circle',
       class: 'in-progress',
       label: t('agentStream.plan.inProgress'),
       count: parts.inProgress
@@ -2944,7 +3092,7 @@ const getPlanStatusItems = (event: any) => {
 
   if (parts.completed > 0) {
     items.push({
-      icon: 'check-circle-filled',
+      icon: 'check-circle',
       class: 'completed',
       label: t('agentStream.plan.completed'),
       count: parts.completed
@@ -2985,17 +3133,6 @@ const compactionSummaryText = (event: any): string => {
   return parts.join(t('agent.stepSummarySeparator'));
 };
 
-/** Render SVG assets in the channel / brand color via CSS mask. */
-function maskIconStyle(src: string, size = 18): Record<string, string> {
-  if (!src) return {}
-  const url = `url("${src}")`
-  return {
-    width: `${size}px`,
-    height: `${size}px`,
-    WebkitMaskImage: url,
-    maskImage: url,
-  }
-}
 
 // Get search results summary text (returns HTML with colored numbers)
 const getSearchResultsSummary = (event: any): string => {
@@ -3005,11 +3142,11 @@ const getSearchResultsSummary = (event: any): string => {
   const count = Number(toolData.results?.length ?? toolData.count ?? 0) || 0;
   if (count === 0) return t('agentStream.search.noResults');
 
-  // Build summary text
+  // Build summary text. kb_counts is keyed by knowledge base, not by file.
   let summary = '';
-  const kbCount = toolData.kb_counts ? Object.keys(toolData.kb_counts).length : 0;
-  if (kbCount > 0) {
-    summary = t('agentStream.search.foundResultsFromFiles', { count: `<strong>${count}</strong>`, files: `<strong>${kbCount}</strong>` });
+  const fileCount = countSearchResultFiles(toolData.results);
+  if (fileCount > 0) {
+    summary = t('agentStream.search.foundResultsFromFiles', { count: `<strong>${count}</strong>`, files: `<strong>${fileCount}</strong>` });
   } else {
     summary = t('agentStream.search.foundResults', { count: `<strong>${count}</strong>` });
   }
@@ -3106,7 +3243,7 @@ const getToolTitle = (event: any): string => {
       const name = getLocalizedToolName(event.tool_name);
       return `${formatToolTitleWithDetail(name, getSandboxToolDetail(event))}...`;
     }
-    if (event.tool_name === 'shell_exec') {
+    if (event.tool_name === 'shell_exec' || event.tool_name === 'shell_exec_async') {
       return t('agentStream.toolStatus.shellExecRunning');
     }
     const localizedName = getLocalizedToolName(event.tool_name);
@@ -3268,7 +3405,7 @@ const getToolDescription = (event: any): string => {
       const name = getLocalizedToolName(event.tool_name);
       return `${formatToolTitleWithDetail(name, getSandboxToolDetail(event))}...`;
     }
-    if (event.tool_name === 'shell_exec') {
+    if (event.tool_name === 'shell_exec' || event.tool_name === 'shell_exec_async') {
       return t('agentStream.toolStatus.shellExecRunning');
     }
     const localizedName = getLocalizedToolName(event.tool_name);
@@ -3384,6 +3521,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
 
   uiStore.openManualEditor({
     mode: 'create',
+    preferredKbIds: collectManualPreferredKbIds(props.session?.knowledge_references),
     title: manualTitle,
     content: manualContent,
     status: 'draft',
@@ -3394,6 +3532,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
 </script>
 
 <style lang="less" scoped>
+@import (reference) '@/components/css/chat-timeline-theme.less';
 
 
 @import '../../../components/css/chat-markdown.less';
@@ -3407,10 +3546,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
   gap: 0;
   margin-bottom: 10px;
   position: relative;
-  --agent-step-text-size: 14px;
-  --agent-step-summary-size: 13px;
-  --agent-step-line-color: color-mix(in srgb, var(--td-text-color-primary) 16%, transparent);
-  --agent-step-icon-color: var(--td-text-color-placeholder);
+  .chat-timeline-theme();
   --stream-brand-2: color-mix(in srgb, var(--td-brand-color) 2%, transparent);
   --stream-brand-3: color-mix(in srgb, var(--td-brand-color) 3%, transparent);
   --stream-brand-4: color-mix(in srgb, var(--td-brand-color) 4%, transparent);
@@ -3482,17 +3618,6 @@ const handleAddToKnowledge = (answerEvent: any) => {
   }
 }
 
-.icon-mask {
-  display: inline-block;
-  flex-shrink: 0;
-  background-color: var(--agent-step-icon-color);
-  mask-size: contain;
-  mask-repeat: no-repeat;
-  mask-position: center;
-  -webkit-mask-size: contain;
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-position: center;
-}
 
 .tree-children {
   position: relative;
@@ -3508,16 +3633,16 @@ const handleAddToKnowledge = (answerEvent: any) => {
   position: relative;
   padding-left: 42px;
   padding-bottom: 0;
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 
   // vertical trunk line (continues for non-last children)
-  // bottom: -6px extends the line through the margin-bottom gap between siblings
+  // Extend the line through the 14px gap between sibling steps.
   &::before {
     content: '';
     position: absolute;
     left: 9px;
     top: 22px;
-    bottom: -18px;
+    bottom: -14px;
     width: 0;
     border-left: 1px solid var(--agent-step-line-color);
   }
@@ -3729,14 +3854,6 @@ const handleAddToKnowledge = (answerEvent: any) => {
 
   .action-title-icon {
     flex-shrink: 0;
-
-    &.browser-tool-icon { width: 18px; height: 18px; color: var(--agent-step-icon-color); }
-
-    &.t-icon {
-      width: 18px;
-      height: 18px;
-      color: var(--agent-step-icon-color);
-    }
   }
 
   :deep(.t-tooltip) {
@@ -3861,6 +3978,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
   border: 0;
   border-radius: var(--app-radius-sm);
   background: transparent;
+  color: var(--agent-step-icon-color);
   cursor: pointer;
   opacity: 0.6;
   transition: opacity var(--app-motion-fast) ease, background-color var(--app-motion-fast) ease;
@@ -4157,7 +4275,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
   .thinking-detail-content {
     padding: 7px 0 0 0;
     font-size: var(--agent-step-summary-size);
-    color: var(--td-text-color-secondary);
+    color: var(--agent-step-color);
     max-height: none;
     overflow-y: visible;
   }
@@ -4175,7 +4293,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
   .thinking-inline-content {
     flex: 1;
     min-width: 0;
-    color: var(--td-text-color-secondary);
+    color: var(--agent-step-color);
     font-size: var(--agent-step-summary-size);
     line-height: 1.6;
     overflow-wrap: anywhere;
@@ -4216,11 +4334,11 @@ const handleAddToKnowledge = (answerEvent: any) => {
   .plan-status-summary-fixed .plan-status-text {
     font-size: var(--agent-step-summary-size);
     font-weight: 400;
-    color: var(--td-text-color-secondary);
+    color: var(--agent-step-color);
   }
 
   .search-results-summary-fixed .results-summary-text :deep(strong) {
-    color: var(--td-text-color-secondary);
+    color: var(--agent-step-color);
     font-weight: 500;
   }
 
@@ -4241,9 +4359,6 @@ const handleAddToKnowledge = (answerEvent: any) => {
     display: none;
   }
 
-  .icon-mask {
-    background-color: var(--agent-step-icon-color);
-  }
 
   .action-title .action-title-icon {
     color: var(--agent-step-icon-color);
@@ -4263,17 +4378,17 @@ const handleAddToKnowledge = (answerEvent: any) => {
     font-size: var(--agent-step-text-size);
     font-weight: 400;
     line-height: 1.55;
-    color: var(--td-text-color-secondary);
+    color: var(--agent-step-color);
   }
 
   .tree-root .action-name {
     font-size: var(--app-text-base);
-    color: var(--td-text-color-secondary);
+    color: var(--agent-step-color);
   }
 
   .action-summary {
     font-size: var(--agent-step-summary-size);
-    color: var(--td-text-color-placeholder);
+    color: var(--agent-step-color);
   }
 
   .plan-task-change-card {
@@ -4282,7 +4397,7 @@ const handleAddToKnowledge = (answerEvent: any) => {
     border: 0;
     border-radius: 0;
     font-size: var(--agent-step-text-size);
-    color: var(--td-text-color-secondary);
+    color: var(--agent-step-color);
   }
 }
 </style>
