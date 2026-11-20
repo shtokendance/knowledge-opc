@@ -1180,7 +1180,7 @@ onMounted(async () => {
 .form-section {
   flex: 0 0 48%;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   padding: 112px 50px 100px 30px;
   box-sizing: border-box;
@@ -1190,7 +1190,6 @@ onMounted(async () => {
 .form-panel {
   width: 100%;
   max-width: 480px;
-  margin-bottom: 60px;
   position: relative;
   z-index: 2;
 }
