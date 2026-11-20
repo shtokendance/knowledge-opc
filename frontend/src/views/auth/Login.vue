@@ -183,38 +183,50 @@
           <div class="form-content">
             <t-form ref="formRef" :data="formData" :rules="formRules" @submit="handleLogin" layout="vertical"
               label-align="top">
-              <t-form-item :label="$t('auth.email')" name="email">
-                <t-input v-model="formData.email" :placeholder="$t('auth.emailPlaceholder')" type="text"
-                  autocomplete="email" size="large" :disabled="loading" />
-              </t-form-item>
-
-              <t-form-item :label="$t('auth.password')" name="password">
-                <t-input v-model="formData.password" :placeholder="$t('auth.passwordPlaceholder')" type="password"
-                  autocomplete="current-password" size="large" :disabled="loading" @enter="handleLogin" />
-              </t-form-item>
-
-              <t-button type="submit" theme="primary" size="large" block :loading="loading" class="submit-button">
-                {{ loading ? $t('auth.loggingIn') : $t('auth.login') }}
+              <t-button v-if="oidcEnabled" type="button" theme="default" size="large" block :loading="oidcLoading"
+                :disabled="loading" class="oidc-button" @click="handleOIDCLogin">
+                {{ oidcLoading ? $t('auth.redirectingToOIDC') : oidcLoginText }}
               </t-button>
-
-              <div class="register-cta" v-if="registrationEnabled">
-                <div class="register-cta__divider">
-                  <span>{{ $t('auth.firstTime') }}</span>
-                </div>
-                <t-button theme="default" variant="outline" size="large" block class="register-cta__button"
-                  :disabled="loading" @click="toggleMode">
-                  {{ $t('auth.createAccount') }}
-                </t-button>
-              </div>
 
               <div v-if="oidcEnabled" class="oidc-divider">
                 <span>{{ $t('auth.orContinueWith') }}</span>
               </div>
 
-              <t-button v-if="oidcEnabled" theme="default" size="large" block :loading="oidcLoading" :disabled="loading"
-                class="oidc-button" @click="handleOIDCLogin">
-                {{ oidcLoading ? $t('auth.redirectingToOIDC') : oidcLoginText }}
+              <t-button v-if="oidcEnabled" type="button" theme="default" variant="outline" size="large" block
+                class="email-login-toggle" :class="{ 'email-login-toggle--expanded': emailLoginExpanded }"
+                :aria-expanded="emailLoginExpanded" aria-controls="email-login-fields"
+                @click="emailLoginExpanded = !emailLoginExpanded">
+                <template #icon>
+                  <t-icon :name="emailLoginExpanded ? 'chevron-up' : 'chevron-down'" />
+                </template>
+                {{ $t('auth.emailLogin') }}
               </t-button>
+
+              <div id="email-login-fields" v-show="showEmailLogin" class="email-login-fields">
+                <t-form-item :label="$t('auth.email')" name="email">
+                  <t-input v-model="formData.email" :placeholder="$t('auth.emailPlaceholder')" type="text"
+                    autocomplete="email" size="large" :disabled="loading" />
+                </t-form-item>
+
+                <t-form-item :label="$t('auth.password')" name="password">
+                  <t-input v-model="formData.password" :placeholder="$t('auth.passwordPlaceholder')" type="password"
+                    autocomplete="current-password" size="large" :disabled="loading" @enter="handleLogin" />
+                </t-form-item>
+
+                <t-button type="submit" theme="primary" size="large" block :loading="loading" class="submit-button">
+                  {{ loading ? $t('auth.loggingIn') : $t('auth.login') }}
+                </t-button>
+
+                <div class="register-cta" v-if="registrationEnabled">
+                  <div class="register-cta__divider">
+                    <span>{{ $t('auth.firstTime') }}</span>
+                  </div>
+                  <t-button theme="default" variant="outline" size="large" block class="register-cta__button"
+                    :disabled="loading" @click="toggleMode">
+                    {{ $t('auth.createAccount') }}
+                  </t-button>
+                </div>
+              </div>
             </t-form>
 
             <!-- Features list -->
@@ -398,6 +410,8 @@ const isRegisterMode = ref(false)
 const showLanguageMenu = ref(false)
 const oidcEnabled = ref(false)
 const oidcProviderName = ref('')
+const emailLoginExpanded = ref(false)
+const showEmailLogin = computed(() => !oidcEnabled.value || emailLoginExpanded.value)
 // Wait for configuration before showing a registration entry.
 const registrationMode = ref('')
 const registrationEnabled = computed(() => canRegister(registrationMode.value, !!inviteLookup.value))
@@ -1550,11 +1564,16 @@ onMounted(async () => {
   }
 }
 
-.oidc-button {
+.oidc-button,
+.email-login-toggle {
   height: 46px;
   border-radius: var(--app-radius-md);
   font-size: var(--app-text-lg);
   font-weight: 500;
+}
+
+.email-login-toggle--expanded {
+  margin-bottom: 18px;
 }
 
 .form-footer {

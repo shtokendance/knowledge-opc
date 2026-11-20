@@ -6778,6 +6778,7 @@ export default {
     logout: '退出',
     oidcLogin: '使用 OIDC 登入',
     oidcLoginWithProvider: '使用 {provider} 登入',
+    emailLogin: '電子信箱登入',
     redirectingToOIDC: '正在跳轉到身份提供商...',
     orContinueWith: '或使用以下方式繼續',
     oidcLoginFailed: 'OIDC 登入失敗',

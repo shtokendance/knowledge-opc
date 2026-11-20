@@ -3107,6 +3107,7 @@ export default {
     logout: 'ログアウト',
     oidcLogin: 'OIDCでログイン',
     oidcLoginWithProvider: '{provider}でログイン',
+    emailLogin: 'メールアドレスでログイン',
     redirectingToOIDC: 'IDプロバイダにリダイレクトしています...',
     orContinueWith: 'または次の方法で続行',
     oidcLoginFailed: 'OIDCログインに失敗しました',

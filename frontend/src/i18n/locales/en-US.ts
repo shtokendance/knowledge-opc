@@ -3107,6 +3107,7 @@ export default {
     logout: 'Logout',
     oidcLogin: 'Sign in with OIDC',
     oidcLoginWithProvider: 'Sign in with {provider}',
+    emailLogin: 'Log in with email',
     redirectingToOIDC: 'Redirecting to identity provider...',
     orContinueWith: 'Or continue with',
     oidcLoginFailed: 'OIDC login failed',

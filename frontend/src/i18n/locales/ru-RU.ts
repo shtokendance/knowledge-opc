@@ -6777,6 +6777,7 @@ export default {
     logout: 'Выход',
     oidcLogin: 'Войти через OIDC',
     oidcLoginWithProvider: 'Войти через {provider}',
+    emailLogin: 'Войти по электронной почте',
     redirectingToOIDC: 'Перенаправление к поставщику удостоверений...',
     orContinueWith: 'Или продолжить с помощью',
     oidcLoginFailed: 'Ошибка входа через OIDC',
