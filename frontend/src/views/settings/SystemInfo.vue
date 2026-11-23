@@ -55,7 +55,7 @@
           <span class="info-value">
             {{ frontendVersion }}
             <t-tag
-              v-if="systemInfo?.version && systemInfo.version !== 'unknown' && frontendVersion !== 'unknown' && systemInfo.version !== frontendVersion"
+              v-if="frontendVersionMismatch"
               theme="warning"
               variant="light"
               size="small"
@@ -216,6 +216,7 @@ import type { SystemInfo } from '@/api/system'
 import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useI18n } from 'vue-i18n'
 import { docsUrl } from '@/utils/docsUrl'
+import { hasFrontendVersionMismatch } from './systemVersion'
 
 const { t, locale } = useI18n()
 
@@ -226,6 +227,7 @@ const loading = ref(true)
 const error = ref('')
 const frontendVersion = __FRONTEND_VERSION__
 const frontendCommit = __FRONTEND_COMMIT__
+const frontendVersionMismatch = computed(() => hasFrontendVersionMismatch(systemInfo.value?.commit_id, frontendCommit))
 
 let uptimeTicker: ReturnType<typeof setInterval> | null = null
 const uptimeTick = ref(0)
