@@ -165,6 +165,15 @@ func Auth(
 				}
 				return
 			}
+			if allowsOPCWorkspaceToken(c) {
+				user, tenantID, workspaceErr := userService.ValidateOPCWorkspaceToken(c.Request.Context(), token)
+				if workspaceErr == nil && user != nil {
+					if authenticateOPCWorkspace(c, tenantService, memberService, cfg, user, tenantID) {
+						c.Next()
+					}
+					return
+				}
+			}
 			logger.Warnf(c.Request.Context(), "[auth] bearer token rejected: %v", err)
 		}
 

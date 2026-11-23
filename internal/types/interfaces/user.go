@@ -69,6 +69,7 @@ type UserService interface {
 	// non-home tenant. Falls back to user.TenantID when the claim is
 	// missing (old tokens issued before tenant-level RBAC).
 	ValidateToken(ctx context.Context, token string) (*types.User, uint64, error)
+	ValidateOPCWorkspaceToken(ctx context.Context, token string) (*types.User, uint64, error)
 	// GetAccessTokenByValue looks up the stored access-token row for a JWT
 	// string. The Token field is redacted. Used to bind a sandbox-terminal
 	// ticket to the minting session without putting the JWT in the ticket.
