@@ -20,14 +20,14 @@ OPC 使用版本化迁移维护数据库结构，PostgreSQL 与 SQLite 分别使
 
 ```text
 migrations/
-├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000134 共 135 版（270 个 .up/.down.sql 文件）
-├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000051 增量版本
+├── versioned/     # PostgreSQL/ParadeDB 版本化迁移：000000-000142 共 143 版（286 个 .up/.down.sql 文件）
+├── sqlite/        # SQLite 迁移：000000_init（压平的全量 schema）+ 000001-000055 增量版本
 ├── paradedb/      # ParadeDB 附加脚本：00-init-db.sql、01-migrate-to-paradedb.sql（存量库切换）
 └── mysql/         # 00-init-db.sql，遗留的一次性 MySQL 建表脚本（未接入代码）
 ```
 
-- PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000134_tenant_default_settings`；
-- `sqlite/` 以 `000000_init` 作为压平后的全量初始化（JSONB→TEXT、SERIAL→AUTOINCREMENT 等方言差异已适配），其后追加增量版本（当前到 `000051_tenant_default_settings`），同样由 golang-migrate 顺序执行；
+- PostgreSQL 的 `versioned/` 从 `000000_init` 到 `000142_im_session_mode_indexes`；
+- `sqlite/` 以 `000000_init` 作为压平后的全量初始化（JSONB→TEXT、SERIAL→AUTOINCREMENT 等方言差异已适配），其后追加增量版本（当前到 `000055_im_session_mode_indexes`），同样由 golang-migrate 顺序执行；
 - `uuid-ossp`、`vector`、`pg_trgm`、`pg_search` 等扩展由 `versioned/` 迁移自行创建（000000、000002）；BM25 索引使用中文 Lindera 分词器建在 `embeddings.content` 上；
 - `paradedb/00-init-db.sql` 除扩展外还含一份旧版建表语句，**没有被 compose 或代码引用**。不要把它挂成数据库 initdb 脚本：它先建出的旧表会让 `000000_init` 失败。
 
@@ -102,10 +102,15 @@ migrations/
 | 000125 | 清理符合条件的历史空图片分块 |
 | 000126–000127 | MCP 工具风险、`agent_grants` 授权 |
 | 000128 | 自动化任务、运行记录和站内通知 |
-| 000129 | 会话所有者认证来源 |
-| 000130 | 会话沙箱分配与用户共享机器 |
-| 000131–000133 | 自动化执行时长、模型覆盖、统一由助手执行 |
-| 000134 | `tenants.default_settings`（JSONB），保存空间默认模型 ID；未设置时保留部署默认回退行为 |
+| 000129–000132 | OPC 技能发布和 MCP 调用记录、决策与风险信息 |
+| 000133 | 移除旧的技能发布表 |
+| 000134 | 会话所有者认证来源 |
+| 000135 | 会话沙箱分配与用户共享机器 |
+| 000136–000138 | 自动化执行时长、模型覆盖、统一由助手执行 |
+| 000139 | `tenants.default_settings`（JSONB），保存空间默认模型 ID；未设置时保留部署默认回退行为 |
+| 000140 | PostgreSQL 的 `audit_logs.actor_user_id` 由 36 扩展为 64 字符 |
+| 000141 | `credential_vault_items` 记录个人保存的站点账号、适用域名和加密密码 |
+| 000142 | IM 用户会话唯一索引只约束用户模式记录，允许同一用户建立多个线程映射 |
 
 SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 
@@ -135,11 +140,15 @@ SQLite 版本号独立演进，不能与 PostgreSQL 数字一一对应：
 | 000037–000039 | 持久化审批、租户助手配置、会话 kind（对应 000119–000121） |
 | 000040 | 飞书 / Lark 重同步（对应 000122） |
 | 000041–000044 | 协作、空图片分块清理、MCP 风险与授权（对应 000124–000127） |
-| 000045–000047 | 自动化、会话认证来源、沙箱分配（对应 000128–000130） |
-| 000048–000050 | 自动化执行时长、模型覆盖、助手执行（对应 000131–000133） |
-| 000051 | `tenants.default_settings`（TEXT，存储 JSON；对应 000134） |
+| 000045 | 自动化（对应 PostgreSQL 000128） |
+| 000046–000047 | OPC 技能发布与 MCP 调用记录，随后移除旧的技能发布表（对应 PostgreSQL 000129–000133） |
+| 000048–000049 | 会话认证来源、沙箱分配（对应 PostgreSQL 000134–000135） |
+| 000050–000052 | 自动化执行时长、模型覆盖、助手执行（对应 PostgreSQL 000136–000138） |
+| 000053 | `tenants.default_settings`（TEXT，存储 JSON；对应 PostgreSQL 000139） |
+| 000054 | 个人凭据表（对应 PostgreSQL 000141） |
+| 000055 | 用户模式与线程模式 IM 会话索引（对应 PostgreSQL 000142） |
 
-PostgreSQL 的 000099、000112、000115、000118、000123 没有 SQLite 对应版本。
+PostgreSQL 的 000099、000112、000115、000118、000123、000140 没有 SQLite 对应版本。
 
 基线 schema 与后续增量共同决定新建库和已有库的最终结果；不能只看新增迁移文件名判断 Lite 是否有某张表。
 

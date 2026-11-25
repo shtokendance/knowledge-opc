@@ -6,7 +6,7 @@ const output = join(process.cwd(), 'out');
 const html = await readFile(join(output, 'index.html'), 'utf8');
 const visible = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/g, '').replace(/<[^>]+>/g, '');
 assert.equal((html.match(/<h1\b/g) || []).length, 1, 'The homepage must have one main heading');
-for (const term of ['帮你找到答案', '并将知识付诸实践', 'v0.9.0', 'RAG', 'Agent', 'Wiki', 'ClawHub', 'SkillHub', 'Docker', 'E2B', 'Cube', '长期记忆', '交互终端', '图形桌面', '本机浏览器', 'BrowserSkill', 'MCP Server', '画廊', '多模态 Embedding', '内置 30 家厂商', '分叉或回滚', '原文引用定位', '附件按需读取', '平台用户管理', 'Seafile', 'Confluence', '钉钉', 'GitLab', '腾讯 IMA', 'LiteLLM', 'DeepSeek Harness']) {
+for (const term of ['帮你找到答案', '并将知识付诸实践', 'v0.9.1', 'RAG', 'Agent', 'Wiki', 'ClawHub', 'SkillHub', 'Docker', 'E2B', 'Cube', '长期记忆', '交互终端', '图形桌面', '本机浏览器', 'BrowserSkill', 'MCP Server', '画廊', '多模态 Embedding', '内置 31 家厂商', '分叉或回滚', '原文引用定位', '附件按需读取', '平台用户管理', 'Seafile', 'Confluence', '钉钉', 'GitLab', '腾讯 IMA', 'LiteLLM', 'DeepSeek Harness']) {
   assert.ok(visible.includes(term), `Missing product content: ${term}`);
 }
 for (const term of ['三套', '方案选择', '历史 Demo', '18K+', '成为行动力', '从零散文档', '到鲜活知识', '模型接入与目录管理']) {
@@ -15,6 +15,12 @@ for (const term of ['三套', '方案选择', '历史 Demo', '18K+', '成为行�
 assert.match(html, /OPC PREVIEW/, 'Show the current OPC interface');
 assert.ok(!html.includes("2819598d-3140-4623-814a-8162a22b653c"), 'Retire the legacy product video');
 assert.ok(!/<video[^>]+autoplay/i.test(html), 'Do not autoplay the product film');
+const capabilities = html.match(/<section id="capabilities"[\s\S]*?<\/section>/)?.[0];
+assert.ok(capabilities && !capabilities.includes('画廊') && !capabilities.includes('继续了解'), 'Keep gallery and cross-topic links out of the RAG, Agent and Wiki overview');
+const gallery = html.match(/<section id="knowledge-gallery"[\s\S]*?<\/section>/)?.[0];
+for (const term of ['kb-image-gallery.png', 'kb-image-gallery-detail.png', '知识库与画廊', '02-knowledge-base.html#image-gallery']) {
+  assert.ok(gallery?.includes(term), `Missing knowledge gallery showcase: ${term}`);
+}
 const wiki = html.match(/<section id="wiki"[\s\S]*?<\/section>/)?.[0];
 assert.ok(wiki, 'The homepage must include a dedicated Wiki section');
 for (const term of ['/docs/_home/product/wiki-browser.png', '/docs/_home/product/wiki-graph-groups.png', '/docs/_home/product/wiki-revision-history.png', 'id="wiki-gallery"', '/docs/03-features/14-wiki.html', '来源引用', '知识图谱', '主题说明', '返回全图', '版本差异']) {
@@ -22,11 +28,21 @@ for (const term of ['/docs/_home/product/wiki-browser.png', '/docs/_home/product
 }
 // Release highlights and enduring capabilities must survive independently.
 const release = html.match(/<section id="release"[\s\S]*?<\/section>/)?.[0];
-for (const term of ['WeKnora 助手、多智能体协作与自动化', '多智能体协作', '自动化', '执行权限与审批', '按用户复用沙箱', '飞书 / Lark 同步', '产品问答', '任务协助', '一句话设置', '手动设置', '以你的身份']) {
+for (const term of ['语音输入', '沙箱浏览器', '凭据保险库', '知识检索', '文档重建与向量索引', '升级须知', '07-releases/v0.9.1.html#voice', '07-releases/v0.9.1.html#document-progress']) {
   assert.ok(release?.includes(term), `Missing release highlight: ${term}`);
 }
-for (const shot of ['assistant-release-guide', 'assistant-overview', 'agent-collaboration', 'automation-conversation', 'automation-setup', 'assistant-permissions']) {
+for (const shot of ['release-v091-voice', 'release-v091-dictation', 'release-v091-login', 'release-v091-vault-fill', 'release-v091-vault', 'release-v091-search', 'release-v091-source']) {
   assert.ok(release.includes(`src="/docs/_home/product/${shot}.png"`), `Missing release screenshot: ${shot}`);
+}
+for (const { id, guides, images } of [
+  { id: 'work-assistant', guides: ['26-weknora-assistant.html', '26-weknora-assistant.html#collaboration'], images: ['assistant-overview', 'assistant-release-guide', 'agent-collaboration'] },
+  { id: 'automations', guides: ['27-automations.html', '28-agent-permissions.html'], images: ['automation-conversation', 'automation-setup', 'assistant-permissions'] },
+]) {
+  const section = html.match(new RegExp(`<section id="${id}"[\\s\\S]*?</section>`))?.[0];
+  assert.ok(section && !release.includes(`id="${id}"`), `Missing independent product section: ${id}`);
+  assert.ok(capabilities.includes(`href="#${id}"`), `Missing product overview link: #${id}`);
+  for (const guide of guides) assert.ok(section.includes(`href="/docs/03-features/${guide}"`), `Missing guide in ${id}: ${guide}`);
+  for (const image of images) assert.ok(section.includes(`src="/docs/_home/product/${image}.png"`), `Missing screenshot in ${id}: ${image}`);
 }
 const browser = html.match(/<section id="agent-workflow"[\s\S]*?<\/section>/)?.[0];
 assert.ok(browser?.includes('/docs/_home/product/local-browser-task.png') && browser.includes('BrowserSkill'), 'Keep the local browser showcase outside the release section');
