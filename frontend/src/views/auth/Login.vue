@@ -183,7 +183,7 @@
           <div class="form-content">
             <t-form ref="formRef" :data="formData" :rules="formRules" @submit="handleLogin" layout="vertical"
               label-align="top">
-              <t-button v-if="oidcEnabled" type="button" theme="default" size="large" block :loading="oidcLoading"
+              <t-button v-if="oidcEnabled" type="button" theme="primary" size="large" block :loading="oidcLoading"
                 :disabled="loading" class="oidc-button" @click="handleOIDCLogin">
                 {{ oidcLoading ? $t('auth.redirectingToOIDC') : oidcLoginText }}
               </t-button>
