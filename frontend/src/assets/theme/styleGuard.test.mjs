@@ -48,7 +48,7 @@ const RULES = [
     name: 'font-size-literal',
     why: '字号请用 var(--app-text-2xs … 4xl)（10~24px），简写写成 font: var(--app-text-sm)/1.5 …；图标尺寸用 t-icon 的 size 属性',
     pattern: /\bfont(?:-size)?\s*:\s*\d+(?:\.\d+)?px/g,
-    baseline: 33,
+    baseline: 31,
   },
   {
     name: 'motion-literal',

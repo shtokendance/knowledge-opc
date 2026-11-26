@@ -532,8 +532,10 @@ export default {
     }
   },
   platform: {
-    subtitle: 'LLM駆動のエンタープライズ向けナレッジフレームワーク',
-    description: 'RAG検索、エージェント推論、Wikiナレッジベースにより、ドキュメントを本当に理解し活用できます',
+    introAssistantTitle: '面倒な作業は AI に任せよう',
+    introAssistantDesc: 'PPT の作成や文書・表計算の処理から、定期タスクの実行、ファイル整理まで、煩雑な作業は WorkOPC にお任せください。',
+    introKnowledgeTitle: '企業ナレッジを、聞きたいときに',
+    introKnowledgeDesc: '社内制度や業務ドキュメント、現場のノウハウを集約。自然言語で素早く情報を探し回答を得られるので、知識が日々の業務に活きてきます。',
     rag: 'RAG拡張生成',
     agent: 'ReActエージェント',
     wiki: 'Wikiナレッジベース',

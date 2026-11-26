@@ -155,8 +155,10 @@ export default {
     pinned: '已置頂'
   },
   platform: {
-    subtitle: '大型語言模型驅動的企業級知識框架',
-    description: 'RAG 檢索、智慧代理推論、Wiki 知識庫，讓文件真正被理解和運用',
+    introAssistantTitle: '讓 AI 幫你完成工作',
+    introAssistantDesc: '從製作 PPT、處理文件表格，到定時執行任務、整理檔案，把繁瑣工作交給 WorkOPC。',
+    introKnowledgeTitle: '讓企業知識隨問隨用',
+    introKnowledgeDesc: '匯集企業制度、業務文件與工作經驗，透過自然語言快速查找資料、獲得答案，讓知識更好地服務日常工作。',
     rag: 'RAG 增強生成',
     agent: 'ReAct 智慧代理',
     wiki: 'Wiki 知識庫',

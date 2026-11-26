@@ -532,8 +532,10 @@ export default {
     }
   },
   platform: {
-    subtitle: 'LLM-Powered Enterprise Knowledge Framework',
-    description: 'RAG retrieval, agentic reasoning and Wiki knowledge bases — so your documents are truly understood and put to work',
+    introAssistantTitle: 'Let AI get the work done',
+    introAssistantDesc: 'From creating PPTs and handling documents and spreadsheets to running scheduled tasks and organizing files — leave the tedious work to WorkOPC.',
+    introKnowledgeTitle: 'Enterprise knowledge, ready when you ask',
+    introKnowledgeDesc: 'Bring together company policies, business documents, and hands-on experience. Find what you need and get answers in natural language, so knowledge truly serves your daily work.',
     rag: 'RAG Enhanced Generation',
     agent: 'ReAct Agent',
     wiki: 'Wiki Knowledge Base',

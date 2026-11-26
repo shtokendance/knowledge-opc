@@ -155,8 +155,10 @@ export default {
     pinned: '고정됨'
   },
   platform: {
-    subtitle: '대규모 언어 모델 기반 엔터프라이즈 지식 프레임워크',
-    description: 'RAG 검색, 에이전트 추론, Wiki 지식베이스로 문서를 진정으로 이해하고 활용합니다',
+    introAssistantTitle: '번거로운 업무는 AI에게 맡기세요',
+    introAssistantDesc: 'PPT 제작, 문서·스프레드시트 처리부터 예약 작업 실행과 파일 정리까지, 번거로운 작업은 WorkOPC에 맡기세요.',
+    introKnowledgeTitle: '기업 지식, 묻는 순간 바로',
+    introKnowledgeDesc: '사내 규정과 업무 문서, 현장의 노하우를 모아 자연어로 빠르게 자료를 찾고 답을 얻을 수 있어, 지식이 일상 업무에 더 잘 쓰입니다.',
     rag: 'RAG 강화 생성',
     agent: 'ReAct 에이전트',
     wiki: 'Wiki 지식베이스',

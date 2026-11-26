@@ -155,8 +155,10 @@ export default {
     pinned: '已置顶'
   },
   platform: {
-    subtitle: '大模型驱动的企业级知识框架',
-    description: 'RAG 检索、智能体推理、Wiki 知识库，让文档真正被理解和运用',
+    introAssistantTitle: '让 AI 帮你完成工作',
+    introAssistantDesc: '从制作 PPT、处理文档表格，到定时执行任务、整理文件，把繁琐工作交给 WorkOPC。',
+    introKnowledgeTitle: '让企业知识随问随用',
+    introKnowledgeDesc: '汇集企业制度、业务文档和工作经验，通过自然语言快速查找资料、获取答案，让知识更好地服务日常工作。',
     rag: 'RAG 增强生成',
     agent: 'ReAct 智能体',
     wiki: 'Wiki 知识库',

@@ -96,12 +96,11 @@
     </div>
 
     <!-- Logo - Top Left -->
-    <a href="https://github.com/Tencent/WeKnora" target="_blank" class="header-logo" :title="$t('common.github')">
-      <img src="@/assets/img/opc-logo.png" alt="OPC" class="logo-image" />
-    </a>
+    <div class="header-logo">本来生活AI Desktop</div>
 
     <!-- Header Links - Top Right -->
     <div class="header-links">
+      <a class="header-link download-link" href="https://opc-web.ai.benlai.com/work-opc.html" target="_blank" rel="noopener noreferrer">{{ $t('auth.downloadClient') }}</a>
       <div class="language-switch">
         <button @click="toggleLanguageMenu" class="header-link" :title="currentLangOption?.label">
           <span class="lang-flag-icon">{{ currentLangOption?.flag }}</span>
@@ -127,8 +126,30 @@
     <!-- Left Showcase Section -->
     <div class="showcase-section">
       <div class="showcase-content">
-        <p class="showcase-subtitle">{{ $t('platform.subtitle') }}</p>
-        <p class="showcase-description">{{ $t('platform.description') }}</p>
+        <div class="showcase-intro">
+          <div class="intro-item">
+            <div class="intro-title">
+              <svg class="intro-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l1.88 5.12L19 10l-5.12 1.88L12 17l-1.88-5.12L5 10l5.12-1.88L12 3z" />
+                <path d="M19 15l.94 2.06L22 18l-2.06.94L19 21l-.94-2.06L16 18l2.06-.94L19 15z" />
+              </svg>
+              <span class="intro-heading">{{ $t('platform.introAssistantTitle') }}</span>
+            </div>
+            <p class="intro-desc">{{ $t('platform.introAssistantDesc') }}</p>
+          </div>
+          <div class="intro-item">
+            <div class="intro-title">
+              <svg class="intro-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
+              </svg>
+              <span class="intro-heading">{{ $t('platform.introKnowledgeTitle') }}</span>
+            </div>
+            <p class="intro-desc">{{ $t('platform.introKnowledgeDesc') }}</p>
+          </div>
+        </div>
 
         <div class="feature-tags">
           <span class="tag">{{ $t('platform.rag') }}</span>
@@ -1092,22 +1113,42 @@ onMounted(async () => {
   margin-bottom: 60px;
 }
 
-.showcase-subtitle {
-  margin-top: 0;
-  font-size: 22px;
-  color: rgba(255, 255, 255, 0.95);
-  margin: 0 0 8px 0;
-  font-family: var(--app-font-family);
-  line-height: 1.4;
-  font-weight: 500;
+.showcase-intro {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-bottom: 28px;
 }
 
-.showcase-description {
+.intro-item {
+  max-width: 560px;
+}
+
+.intro-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.intro-icon {
+  flex-shrink: 0;
+}
+
+.intro-heading {
+  font-size: var(--app-text-3xl);
+  font-weight: 600;
+  line-height: 1.4;
+  font-family: var(--app-font-family);
+}
+
+.intro-desc {
+  margin: 0;
   font-size: var(--app-text-lg);
   color: rgba(255, 255, 255, 0.8);
-  margin: 0 0 28px 0;
+  line-height: 1.6;
   font-family: var(--app-font-family);
-  line-height: 1.5;
 }
 
 .feature-tags {
@@ -1207,13 +1248,10 @@ onMounted(async () => {
   top: 32px;
   left: 50px;
   z-index: 100;
-  cursor: pointer;
-
-  .logo-image {
-    width: 120px;
-    height: auto;
-    filter: invert(1) hue-rotate(180deg) brightness(1.1);
-  }
+  color: var(--td-text-color-anti);
+  font-size: var(--app-text-3xl);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .header-links {
@@ -1659,17 +1697,13 @@ onMounted(async () => {
     display: none;
   }
 
-  .showcase-subtitle {
+  .intro-heading {
     font-size: var(--app-text-2xl);
   }
 
   .header-logo {
     top: 26px;
     left: 40px;
-
-    .logo-image {
-      width: 100px;
-    }
   }
 
   .header-links {
@@ -1716,15 +1750,15 @@ onMounted(async () => {
   .header-logo {
     top: 22px;
     left: 30px;
-
-    .logo-image {
-      width: 80px;
-    }
   }
 
-  .showcase-subtitle {
-    font-size: var(--app-text-xl);
+  .showcase-intro {
+    gap: 20px;
     margin-bottom: 24px;
+  }
+
+  .intro-heading {
+    font-size: var(--app-text-xl);
   }
 
   .feature-tags {
@@ -1766,6 +1800,10 @@ onMounted(async () => {
 }
 
 @media (max-width: 480px) {
+  .login-layout {
+    padding-top: 100px;
+  }
+
   .animated-bg {
     display: none;
   }
@@ -1776,14 +1814,20 @@ onMounted(async () => {
 
   .header-logo {
     top: 18px;
-    left: 20px;
+    left: 14px;
+    font-size: var(--app-text-lg);
 
-    .logo-image {
-      width: 70px;
-    }
   }
 
-  .showcase-subtitle {
+  .showcase-intro {
+    gap: 16px;
+  }
+
+  .intro-heading {
+    font-size: var(--app-text-lg);
+  }
+
+  .intro-desc {
     font-size: var(--app-text-base);
   }
 
@@ -1797,7 +1841,7 @@ onMounted(async () => {
   }
 
   .header-links {
-    top: 14px;
+    top: 52px;
     right: 14px;
     gap: 6px;
     flex-wrap: wrap;
@@ -1809,6 +1853,9 @@ onMounted(async () => {
     .header-link {
       padding: 7px 10px;
       font-size: var(--app-text-xs);
+    }
+    .download-link {
+      padding: 7px 8px;
     }
   }
 
@@ -1849,10 +1896,6 @@ html[theme-mode="dark"] {
 
   .connection-line {
     stroke: rgba(255, 255, 255, 0.25);
-  }
-
-  .header-logo .logo-image {
-    filter: invert(1) hue-rotate(180deg) brightness(1.1);
   }
 
   .header-link {
