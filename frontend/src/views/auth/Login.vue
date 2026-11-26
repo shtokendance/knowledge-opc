@@ -158,20 +158,6 @@
           <span class="tag">{{ $t('platform.hybridSearch') }}</span>
         </div>
 
-        <!-- Swiper Carousel -->
-        <div class="carousel-container">
-          <swiper :modules="modules" :slides-per-view="1" :loop="true" :autoplay="{
-            delay: 4000,
-            disableOnInteraction: false,
-          }" :effect="'fade'" :fade-effect="{ crossFade: true }"
-            :pagination="{ clickable: true, dynamicBullets: false }" :speed="800" class="screenshot-swiper">
-            <swiper-slide v-for="(slide, index) in slides" :key="index">
-              <div class="slide-content">
-                <img :src="slide.image" :alt="slide.title" class="slide-image" />
-              </div>
-            </swiper-slide>
-          </swiper>
-        </div>
       </div>
     </div>
 
@@ -360,11 +346,6 @@ import { notifyLoginSuccess } from '@/utils/loginNotify'
 import { canRegister } from './registrationPolicy'
 import { newPasswordRules } from '@/utils/passwordPolicy'
 import { safeLoginRedirect } from '@/utils/resourceDeepLink'
-import { Swiper, SwiperSlide } from 'swiper/vue'
-import { Autoplay, EffectFade, Pagination } from 'swiper/modules'
-import 'swiper/css'
-import 'swiper/css/effect-fade'
-import 'swiper/css/pagination'
 import {
   login,
   register,
@@ -382,44 +363,11 @@ import { normalizeMainLocale, setI18nLanguage } from '@/i18n'
 import { useI18n } from 'vue-i18n'
 import { getApiBaseUrl } from '@/utils/api-base'
 
-// Import screenshot images
-import screenshot1 from '@/assets/img/screenshot-1.svg'
-import screenshot2 from '@/assets/img/screenshot-2.svg'
-import screenshot3 from '@/assets/img/screenshot-3.svg'
-import screenshot4 from '@/assets/img/screenshot-4.svg'
-
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
 const { t, tm, locale } = useI18n()
 const { formatRole, roleIcon } = useRoleLabel()
-
-// Swiper modules
-const modules = [Autoplay, EffectFade, Pagination]
-
-// Carousel slides data
-const slides = computed(() => [
-  {
-    image: screenshot4,
-    title: t('platform.carousel.agenticRagTitle'),
-    description: t('platform.carousel.agenticRagDesc')
-  },
-  {
-    image: screenshot2,
-    title: t('platform.carousel.hybridSearchTitle'),
-    description: t('platform.carousel.hybridSearchDesc')
-  },
-  {
-    image: screenshot3,
-    title: t('platform.carousel.wikiTitle'),
-    description: t('platform.carousel.wikiDesc')
-  },
-  {
-    image: screenshot1,
-    title: t('platform.carousel.smartDocRetrievalTitle'),
-    description: t('platform.carousel.smartDocRetrievalDesc')
-  }
-])
 
 // Form references
 const formRef = ref()
@@ -1110,7 +1058,7 @@ onMounted(async () => {
   z-index: 2;
   display: flex;
   flex-direction: column;
-  margin-bottom: 60px;
+  margin-bottom: 36px;
 }
 
 .showcase-intro {
@@ -1167,62 +1115,6 @@ onMounted(async () => {
   font-size: var(--app-text-base);
   font-weight: 500;
   font-family: var(--app-font-family);
-}
-
-/* Carousel */
-.carousel-container {
-  width: 100%;
-  margin-top: 48px;
-}
-
-.screenshot-swiper {
-  width: 100%;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  padding-bottom: 40px;
-
-  :deep(.swiper-wrapper) {
-    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  :deep(.swiper-pagination) {
-    bottom: 15px !important;
-    z-index: 10;
-  }
-
-  :deep(.swiper-pagination-bullet) {
-    width: 10px;
-    height: 10px;
-    background: rgba(255, 255, 255, 0.5);
-    opacity: 1;
-    transition: all var(--app-motion-slow) ease;
-    margin: 0 6px !important;
-  }
-
-  :deep(.swiper-pagination-bullet-active) {
-    background: var(--td-bg-color-container);
-    width: 28px;
-    border-radius: 5px;
-  }
-}
-
-.slide-content {
-  width: 100%;
-  height: 100%;
-  background: var(--td-bg-color-container);
-  border-radius: 16px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.slide-image {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: contain;
 }
 
 /* Right Form Section */
@@ -1765,10 +1657,6 @@ onMounted(async () => {
     margin-bottom: 24px;
   }
 
-  .carousel-container {
-    margin-top: 24px;
-  }
-
   .form-section {
     order: -1;
     flex: 0 0 auto;
@@ -1946,10 +1834,6 @@ html[theme-mode="dark"] {
     &:focus-within {
       border-color: var(--td-brand-color) !important;
     }
-  }
-
-  .screenshot-swiper .swiper-pagination-bullet-active {
-    background: rgba(255, 255, 255, 0.9) !important;
   }
 
   .login-features .feature-icon {
